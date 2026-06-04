@@ -2,6 +2,7 @@ export type ReportPdfType =
   | "attendance"
   | "requests"
   | "workers"
+  | "work-crews"
   | "payroll"
   | "monthly-summary"
   | "vacations"
@@ -32,6 +33,12 @@ export const REPORT_CONFIGS: Record<ReportPdfType, ReportConfig> = {
     permission: "reports.workers.export",
     filenamePrefix: "reporte-colaboradores-fabryor",
     title: "Reporte de Colaboradores",
+  },
+  "work-crews": {
+    endpoint: "/api/reports/work-crews/export/pdf",
+    permission: "reports.workCrews.export",
+    filenamePrefix: "reporte-equipos-trabajo-fabryor",
+    title: "Reporte de Equipos de Trabajo",
   },
   payroll: {
     endpoint: "/api/reports/payroll/pdf",

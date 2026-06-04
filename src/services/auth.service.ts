@@ -21,4 +21,9 @@ export const authService = {
     apiClient<{ success: boolean }>(webApiEndpoints.auth.logout, {
       method: "POST",
     }),
+  verifyPassword: (password: string) =>
+    apiClient<{ success: boolean; message?: string }>(webApiEndpoints.auth.verifyPassword, {
+      method: "POST",
+      body: { password },
+    }),
 };

@@ -1,7 +1,6 @@
-import Image from "next/image";
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
+import Image from "next/image";
 import { BadgeCheck, FileText } from "lucide-react";
 
 import type { CompanySettingsPayload } from "@/types";

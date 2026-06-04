@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download, ExternalLink, FileText, Loader2, RefreshCw, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 import { RequestModalShell } from "@/components/requests/request-modal-shell";
 import { ErrorState, LoadingPanel } from "@/components/shared/states";
@@ -266,7 +267,18 @@ export function WorkerContractsTable({ workerId }: WorkerContractsTableProps) {
               ) : (
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center text-sm text-ink-soft">
-                    Este trabajador no tiene contratos registrados.
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <span>Este trabajador no tiene contratos registrados.</span>
+                      <Link href={`/trabajadores/alta?mode=create&workerId=${workerId}`}>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="mt-1 h-9 gap-1.5 px-4 text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 rounded-xl transition-all duration-200 shadow-sm hover:shadow"
+                        >
+                          Generar contrato inicial
+                        </Button>
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               )}

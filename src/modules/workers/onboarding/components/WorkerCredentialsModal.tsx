@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Copy, KeyRound, Mail, UserRound, UserRoundCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TemporaryPasswordReveal } from "@/components/security/TemporaryPasswordReveal";
 import { RequestModalShell } from "@/components/requests/request-modal-shell";
 import type { WorkerCredentials } from "../types/create-worker.types";
 
@@ -16,6 +17,7 @@ export function WorkerCredentialsModal({
   onClose,
 }: WorkerCredentialsModalProps) {
   const [copied, setCopied] = useState(false);
+  const [isPasswordRevealed, setIsPasswordRevealed] = useState(false);
 
   if (!credentials) return null;
 
@@ -24,7 +26,7 @@ export function WorkerCredentialsModal({
       [
         `Correo: ${credentials.email}`,
         `Usuario: ${credentials.username}`,
-        `Contrasena temporal: ${credentials.temporaryPassword}`,
+        `Contrasena temporal: ${isPasswordRevealed ? credentials.temporaryPassword : "[requiere verificacion en pantalla]"}`,
       ].join("\n"),
     );
     setCopied(true);
@@ -75,6 +77,7 @@ export function WorkerCredentialsModal({
             label="Contrasena temporal"
             value={credentials.temporaryPassword}
             secret
+            onSecretRevealChange={setIsPasswordRevealed}
           />
         </dl>
       </div>
@@ -87,11 +90,13 @@ function CredentialRow({
   label,
   value,
   secret = false,
+  onSecretRevealChange,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   secret?: boolean;
+  onSecretRevealChange?: (revealed: boolean) => void;
 }) {
   return (
     <div className="grid gap-2 rounded-2xl border border-border bg-white px-4 py-3 sm:grid-cols-[170px_1fr] sm:items-center">
@@ -101,8 +106,12 @@ function CredentialRow({
         </span>
         {label}
       </dt>
-      <dd className={secret ? "break-all font-mono text-sm font-semibold text-ink" : "break-all text-sm font-semibold text-ink"}>
-        {value || "No informado"}
+      <dd className={secret ? "min-w-0" : "break-all text-sm font-semibold text-ink"}>
+        {secret && value ? (
+          <TemporaryPasswordReveal password={value} label={label} onRevealChange={onSecretRevealChange} />
+        ) : (
+          value || "No informado"
+        )}
       </dd>
     </div>
   );

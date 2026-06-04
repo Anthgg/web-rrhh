@@ -46,9 +46,9 @@ export const onboardingSchema = z
           message: "Ingresa un correo electrónico personal válido.",
         }),
       address: z.string().optional(),
-      district: optionalUuid,
-      province: optionalUuid,
       departmentId: optionalUuid,
+      provinceId: optionalUuid,
+      districtId: optionalUuid,
       emergencyContactName: z.string().optional(),
       emergencyContactPhone: z
         .string()

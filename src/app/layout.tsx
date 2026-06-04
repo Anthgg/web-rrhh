@@ -21,7 +21,7 @@ const bodyFont = IBM_Plex_Sans({
 
 export const metadata: Metadata = {
   title: `${appConfig.appName} | Gestión administrativa`,
-  description: "Panel administrativo interno para FABRYOR.",
+  description: "Panel administrativo.",
 };
 
 export default async function RootLayout({

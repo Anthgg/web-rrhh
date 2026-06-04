@@ -3,6 +3,7 @@ import { type UserRole } from "@/types";
 const routeAccessConfig: Record<string, readonly UserRole[]> = {
   "/dashboard/settings/company": ["admin", "super_admin", "hr"],
   "/estructura": ["admin", "hr"],
+  "/equipos-de-trabajo": ["supervisor", "admin", "hr"],
   "/work-locations": ["admin", "hr"],
   "/dashboard/settings/organization": ["admin", "super_admin", "hr"],
   "/dashboard/requests/pending": ["supervisor", "admin", "hr"],
@@ -25,6 +26,7 @@ export const protectedRoutePrefixes = Object.keys(routeAccessConfig).sort(
 export const routeLabels: Record<string, string> = {
   "/dashboard/settings/company": "Configuracion de empresa",
   "/estructura": "Estructura Organizacional",
+  "/equipos-de-trabajo": "Equipos de Trabajo",
   "/work-locations": "Lugares de trabajo",
   "/dashboard/settings/organization": "Estructura Legacy",
   "/dashboard": "Dashboard",

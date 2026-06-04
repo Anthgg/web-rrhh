@@ -94,6 +94,10 @@ export const backendRoutes = {
     monthlySummaryPdf: adminApiEndpoints.reports.monthlySummaryPdf,
     vacationsPdf: adminApiEndpoints.reports.vacationsPdf,
     documentsPdf: adminApiEndpoints.reports.documentsPdf,
+    workCrewsPdf: adminApiEndpoints.reports.workCrewsPdf,
+    workCrewsExcel: adminApiEndpoints.reports.workCrewsExcel,
+    workCrewsColumns: adminApiEndpoints.reports.workCrewsColumns,
+    workCrewsPreview: adminApiEndpoints.reports.workCrewsPreview,
     list: [
       ...adminApiEndpoints.reports.attendance,
       ...adminApiEndpoints.reports.monthlySummary,

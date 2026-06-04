@@ -60,6 +60,10 @@ export function CreateWorkLocationModal({ isOpen, onClose, onSuccess }: CreateWo
 
   if (!isOpen) return null;
 
+  const departmentOptions = Array.isArray(departments) ? departments : [];
+  const provinceOptions = Array.isArray(provinces) ? provinces : [];
+  const districtOptions = Array.isArray(districts) ? districts : [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
@@ -95,7 +99,7 @@ export function CreateWorkLocationModal({ isOpen, onClose, onSuccess }: CreateWo
               disabled={isLoadingDepts || createMutation.isPending}
             >
               <option value="">Selecciona Departamento...</option>
-              {departments?.map((d) => (
+              {departmentOptions.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </Select>
@@ -111,7 +115,7 @@ export function CreateWorkLocationModal({ isOpen, onClose, onSuccess }: CreateWo
               disabled={!geoDepartmentId || isLoadingProv || createMutation.isPending}
             >
               <option value="">Selecciona Provincia...</option>
-              {provinces?.map((p) => (
+              {provinceOptions.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </Select>
@@ -124,7 +128,7 @@ export function CreateWorkLocationModal({ isOpen, onClose, onSuccess }: CreateWo
               disabled={!geoProvinceId || isLoadingDist || createMutation.isPending}
             >
               <option value="">Selecciona Distrito...</option>
-              {districts?.map((d) => (
+              {districtOptions.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </Select>

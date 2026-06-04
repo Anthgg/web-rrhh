@@ -17,7 +17,7 @@ export function PersonalDataForm({ form }: PersonalDataFormProps) {
   // Watch DNI and other fields for coordination
   const dniValue = watch("personalData.dni");
   const departmentId = watch("personalData.departmentId");
-  const provinceId = watch("personalData.province");
+  const provinceId = watch("personalData.provinceId");
   const ubigeo = useUbigeo(departmentId, provinceId);
 
   const personalErrors = errors.personalData;
@@ -151,9 +151,9 @@ export function PersonalDataForm({ form }: PersonalDataFormProps) {
               disabled={ubigeo.departmentsQuery.isLoading}
               onChange={(event) => {
                 setValue("personalData.departmentId", event.target.value, { shouldDirty: true, shouldValidate: true });
-                setValue("personalData.province", "", { shouldDirty: true, shouldValidate: true });
-                setValue("personalData.district", "", { shouldDirty: true, shouldValidate: true });
-                clearErrors(["personalData.province", "personalData.district"]);
+                setValue("personalData.provinceId", "", { shouldDirty: true, shouldValidate: true });
+                setValue("personalData.districtId", "", { shouldDirty: true, shouldValidate: true });
+                clearErrors(["personalData.provinceId", "personalData.districtId"]);
               }}
             >
               <option value="">Selecciona departamento...</option>
@@ -165,14 +165,14 @@ export function PersonalDataForm({ form }: PersonalDataFormProps) {
             </Select>
           </FieldFrame>
 
-          <FieldFrame label="Provincia" error={personalErrors?.province?.message}>
+          <FieldFrame label="Provincia" error={personalErrors?.provinceId?.message}>
             <Select
-              {...register("personalData.province")}
+              {...register("personalData.provinceId")}
               disabled={!departmentId || ubigeo.provincesQuery.isFetching}
               onChange={(event) => {
-                setValue("personalData.province", event.target.value, { shouldDirty: true, shouldValidate: true });
-                setValue("personalData.district", "", { shouldDirty: true, shouldValidate: true });
-                clearErrors("personalData.district");
+                setValue("personalData.provinceId", event.target.value, { shouldDirty: true, shouldValidate: true });
+                setValue("personalData.districtId", "", { shouldDirty: true, shouldValidate: true });
+                clearErrors("personalData.districtId");
               }}
             >
               <option value="">Selecciona provincia...</option>
@@ -184,9 +184,9 @@ export function PersonalDataForm({ form }: PersonalDataFormProps) {
             </Select>
           </FieldFrame>
 
-          <FieldFrame label="Distrito" error={personalErrors?.district?.message}>
+          <FieldFrame label="Distrito" error={personalErrors?.districtId?.message}>
             <Select
-              {...register("personalData.district")}
+              {...register("personalData.districtId")}
               disabled={!provinceId || ubigeo.districtsQuery.isFetching}
             >
               <option value="">Selecciona distrito...</option>

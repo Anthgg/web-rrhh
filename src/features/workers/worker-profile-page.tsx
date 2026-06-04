@@ -14,6 +14,7 @@ import { formatRole } from "@/lib/utils/format";
 import { workersService } from "@/services/workers.service";
 import { WorkerContractsTable } from "@/features/workers/worker-contracts-table";
 import { LaborAssignmentForm } from "@/features/workers/labor-assignment-form";
+import { isUuid } from "@/lib/api/worker-ids";
 
 interface WorkerProfilePageProps {
   workerId: string;
@@ -30,11 +31,22 @@ const profileTabs: Array<{ key: WorkerProfileTab; label: string }> = [
 export function WorkerProfilePage({ workerId }: WorkerProfilePageProps) {
   const [activeTab, setActiveTab] = useState<WorkerProfileTab>("summary");
 
+  const isValidId = isUuid(workerId);
+
   const workerQuery = useQuery({
     queryKey: ["worker-detail", workerId],
     queryFn: () => workersService.detail(workerId),
-    enabled: Boolean(workerId),
+    enabled: isValidId,
   });
+
+  if (!isValidId) {
+    return (
+      <ErrorState
+        title="ID de trabajador no válido"
+        description="El perfil del trabajador está incompleto o el identificador proporcionado no es un UUID válido."
+      />
+    );
+  }
 
   if (workerQuery.isLoading) {
     return <LoadingPanel title="Cargando perfil del trabajador." />;
@@ -130,6 +142,7 @@ export function WorkerProfilePage({ workerId }: WorkerProfilePageProps) {
             <ProfileField label="Proyecto" value={worker.project || "Sin proyecto"} />
             <ProfileField label="Correo" value={worker.email || "No registrado"} />
             <ProfileField label="Teléfono" value={worker.phone || "No registrado"} />
+            <ProfileField label="DNI" value={worker.documentNumber || "No registrado"} />
             <ProfileField label="Nacimiento" value={worker.birthDate || "No registrado"} />
             <ProfileField label="Estado" value={worker.status} />
             {worker.work_location_name && (

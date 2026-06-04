@@ -25,8 +25,42 @@ import { extractArray } from "@/lib/utils/extract-array";
 import { WorkLocationFormModal } from "./components/WorkLocationFormModal";
 import { DeleteWorkLocationDialog } from "./components/DeleteWorkLocationDialog";
 
+// ── Ubigeo name helper ────────────────────────────────────────────────────────
+// The backend now includes both geographic_*_name and *_name (alias) fields.
+// Prefer geographic_*_name, fall back to the alias, then to nothing.
+
+function resolveGeoNames(loc: OrganizationWorkLocation) {
+  const dept = loc.geographic_department_name || loc.department_name || null;
+  const prov = loc.geographic_province_name  || loc.province_name  || null;
+  const dist = loc.geographic_district_name  || loc.district_name  || null;
+  return { dept, prov, dist };
+}
+
+function UbigeoCell({ loc }: { loc: OrganizationWorkLocation }) {
+  const { dept, prov, dist } = resolveGeoNames(loc);
+
+  if (!dept && !prov && !dist) {
+    return <span className="text-xs text-slate-400">Sin ubicación</span>;
+  }
+
+  // Build label from most-specific to least-specific
+  const parts = [dist, prov, dept].filter(Boolean);
+
+  return (
+    <div className="flex flex-col gap-0.5 text-sm">
+      {/* First part (district) in a slightly heavier weight */}
+      <span className="font-medium text-slate-700">{parts[0]}</span>
+      {parts.length > 1 && (
+        <span className="text-xs text-slate-400">{parts.slice(1).join(", ")}</span>
+      )}
+    </div>
+  );
+}
+
+// ── Table columns ─────────────────────────────────────────────────────────────
+
 const columns = (
-  onEdit: (loc: OrganizationWorkLocation) => void,
+  onEdit:   (loc: OrganizationWorkLocation) => void,
   onDelete: (loc: OrganizationWorkLocation) => void,
   onToggle: (loc: OrganizationWorkLocation) => void,
   isPending: boolean
@@ -51,28 +85,14 @@ const columns = (
   {
     key: "location",
     header: "Ubicación",
-    render: (loc: OrganizationWorkLocation) => (
-      <div className="flex flex-col gap-0.5 text-sm text-slate-600">
-        {loc.geographic_department_name && (
-          <span>{loc.geographic_department_name}</span>
-        )}
-        {loc.geographic_province_name && (
-          <span className="text-xs text-slate-400">
-            {loc.geographic_province_name}
-            {loc.geographic_district_name
-              ? ` · ${loc.geographic_district_name}`
-              : ""}
-          </span>
-        )}
-      </div>
-    ),
+    // Reads directly from the API response — no extra requests needed
+    render: (loc: OrganizationWorkLocation) => <UbigeoCell loc={loc} />,
   },
   {
     key: "coords",
     header: "Coordenadas / Radio",
     render: (loc: OrganizationWorkLocation) => {
-      const hasCoords =
-        loc.latitude != null && loc.longitude != null;
+      const hasCoords = loc.latitude != null && loc.longitude != null;
       return hasCoords ? (
         <div className="flex flex-col gap-0.5 text-xs font-mono text-slate-600">
           <span className="flex items-center gap-1">
@@ -122,11 +142,7 @@ const columns = (
             disabled={isPending}
             title={isActive ? "Desactivar" : "Activar"}
           >
-            {isActive ? (
-              <EyeOff className="size-4" />
-            ) : (
-              <CheckCircle2 className="size-4" />
-            )}
+            {isActive ? <EyeOff className="size-4" /> : <CheckCircle2 className="size-4" />}
           </Button>
 
           <Button
@@ -143,20 +159,16 @@ const columns = (
   },
 ];
 
-export function WorkLocationsWorkspace({
-  hideHeader,
-}: {
-  hideHeader?: boolean;
-}) {
+// ── Workspace ─────────────────────────────────────────────────────────────────
+
+export function WorkLocationsWorkspace({ hideHeader }: { hideHeader?: boolean }) {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] =
     useState<OrganizationWorkLocation | null>(null);
-  const [deleteData, setDeleteData] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  const [deleteData, setDeleteData] = useState<{ id: string; name: string } | null>(null);
 
+  // Single request — names come directly from the API
   const locationsQuery = useQuery({
     queryKey: ["work-locations"],
     queryFn: async () => {
@@ -168,33 +180,17 @@ export function WorkLocationsWorkspace({
   const toggleStatus = useMutation({
     mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
       organizationService.updateWorkLocationStatus(id, is_active),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["work-locations"] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["work-locations"] }),
   });
 
-  const handleCreate = () => {
-    setSelectedLocation(null);
-    setIsFormOpen(true);
-  };
-
-  const handleEdit = (loc: OrganizationWorkLocation) => {
-    setSelectedLocation(loc);
-    setIsFormOpen(true);
-  };
-
-  const handleDelete = (loc: OrganizationWorkLocation) => {
-    setDeleteData({ id: loc.id, name: loc.name });
-  };
-
+  const handleCreate = () => { setSelectedLocation(null); setIsFormOpen(true); };
+  const handleEdit   = (loc: OrganizationWorkLocation) => { setSelectedLocation(loc); setIsFormOpen(true); };
+  const handleDelete = (loc: OrganizationWorkLocation) => setDeleteData({ id: loc.id, name: loc.name });
   const handleToggle = (loc: OrganizationWorkLocation) => {
-    const isActive = loc.is_active !== false;
-    toggleStatus.mutate({ id: loc.id, is_active: !isActive });
+    toggleStatus.mutate({ id: loc.id, is_active: loc.is_active === false });
   };
 
-  if (locationsQuery.isLoading) {
-    return <LoadingPanel title="Cargando lugares de trabajo..." />;
-  }
+  if (locationsQuery.isLoading) return <LoadingPanel title="Cargando lugares de trabajo..." />;
 
   if (locationsQuery.isError || !locationsQuery.data) {
     return (
@@ -208,9 +204,7 @@ export function WorkLocationsWorkspace({
 
   const rows = Array.isArray(locationsQuery.data)
     ? locationsQuery.data
-    : (locationsQuery.data as any)?.items ||
-      (locationsQuery.data as any)?.data ||
-      [];
+    : (locationsQuery.data as any)?.items ?? (locationsQuery.data as any)?.data ?? [];
 
   return (
     <>
@@ -234,12 +228,7 @@ export function WorkLocationsWorkspace({
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <DataTable
-          columns={columns(
-            handleEdit,
-            handleDelete,
-            handleToggle,
-            toggleStatus.isPending
-          )}
+          columns={columns(handleEdit, handleDelete, handleToggle, toggleStatus.isPending)}
           rows={rows}
           rowKey={(item: any) => item.id as string}
         />
@@ -254,8 +243,8 @@ export function WorkLocationsWorkspace({
       <DeleteWorkLocationDialog
         isOpen={!!deleteData}
         onClose={() => setDeleteData(null)}
-        locationId={deleteData?.id || null}
-        locationName={deleteData?.name || null}
+        locationId={deleteData?.id ?? null}
+        locationName={deleteData?.name ?? null}
       />
     </>
   );

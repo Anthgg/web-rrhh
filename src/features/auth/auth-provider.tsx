@@ -44,6 +44,7 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
   const [user, setUser] = useState<UserProfile | null>(null);
   const [status, setStatus] = useState<LoadableStatus>(hasSessionCandidate ? "loading" : "unauthenticated");
   const sessionRequestRef = useRef<Promise<UserProfile | null> | null>(null);
+  const sessionFailedRef = useRef(false);
   const lastRedirectRef = useRef<string | null>(null);
   const isAuthenticated = status === "authenticated" || Boolean(user);
 
@@ -61,6 +62,10 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
   );
 
   const refreshSession = useCallback(async () => {
+    if (sessionFailedRef.current) {
+      return null;
+    }
+
     if (sessionRequestRef.current) {
       return sessionRequestRef.current;
     }
@@ -71,6 +76,7 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
         setClientAccessToken(session.accessToken);
         setUser(session.user);
         setStatus("authenticated");
+        sessionFailedRef.current = false;
         lastRedirectRef.current = null;
 
         if (pathname === "/login") {
@@ -80,9 +86,11 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
         return session.user;
       })
       .catch(() => {
+        sessionFailedRef.current = true;
         clearClientAccessToken();
         setUser(null);
         setStatus("unauthenticated");
+        void authService.logout().catch(() => undefined);
 
         if (isProtectedPath(pathname)) {
           replaceOnce("/login?reason=session-expired");
@@ -119,6 +127,7 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
       setClientAccessToken(session.accessToken);
       setUser(session.user);
       setStatus("authenticated");
+      sessionFailedRef.current = false;
       lastRedirectRef.current = null;
       replaceOnce("/dashboard");
     },

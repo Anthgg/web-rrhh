@@ -8,6 +8,7 @@ import type { CatalogItem } from "../types/onboarding.types";
 
 interface OnboardingSummaryProps {
   form: UseFormReturn<OnboardingFormValues>;
+  completionMode?: boolean;
   catalogs: {
     companies: CatalogItem[];
     branches: CatalogItem[];
@@ -32,7 +33,7 @@ const getShiftName = (shifts: CatalogItem[], id?: string) => {
   return shift ? `${shift.name} (${shift.schedule})` : id;
 };
 
-export function OnboardingSummary({ form, catalogs }: OnboardingSummaryProps) {
+export function OnboardingSummary({ form, completionMode = false, catalogs }: OnboardingSummaryProps) {
   const { watch } = form;
   const values = watch();
 
@@ -113,7 +114,7 @@ export function OnboardingSummary({ form, catalogs }: OnboardingSummaryProps) {
         </div>
 
         {/* 3. Condiciones Contractuales */}
-        <div className="border border-slate-100 rounded-xl p-4 space-y-3">
+        <div className={completionMode ? "hidden" : "border border-slate-100 rounded-xl p-4 space-y-3"}>
           <div className="flex items-center gap-2 text-indigo-700 font-semibold text-sm">
             <FileText className="size-4" />
             <span>Condiciones de Contrato</span>
@@ -161,7 +162,7 @@ export function OnboardingSummary({ form, catalogs }: OnboardingSummaryProps) {
         </div>
 
         {/* 4. Acceso al Sistema */}
-        <div className="border border-slate-100 rounded-xl p-4 space-y-3">
+        <div className={completionMode ? "hidden" : "border border-slate-100 rounded-xl p-4 space-y-3"}>
           <div className="flex items-center gap-2 text-indigo-700 font-semibold text-sm">
             <Shield className="size-4" />
             <span>Acceso al Sistema</span>
@@ -204,10 +205,15 @@ export function OnboardingSummary({ form, catalogs }: OnboardingSummaryProps) {
           <li className="flex items-start gap-2.5 text-xs text-slate-700">
             <CheckCircle2 className="size-4 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div>
-              <strong className="font-medium text-slate-900">Crear ficha de colaborador:</strong> Se guardarán todos los datos personales e información laboral del trabajador.
+              <strong className="font-medium text-slate-900">
+                {completionMode ? "Completar perfil laboral:" : "Crear ficha de colaborador:"}
+              </strong>{" "}
+              {completionMode
+                ? "Se actualizaran los datos personales pendientes y la asignacion laboral del trabajador existente."
+                : "Se guardarán todos los datos personales e información laboral del trabajador."}
             </div>
           </li>
-          {values.contractData.generateContract && (
+          {!completionMode && values.contractData.generateContract && (
             <li className="flex items-start gap-2.5 text-xs text-slate-700">
               <CheckCircle2 className="size-4 text-emerald-600 flex-shrink-0 mt-0.5" />
               <div>
@@ -215,7 +221,7 @@ export function OnboardingSummary({ form, catalogs }: OnboardingSummaryProps) {
               </div>
             </li>
           )}
-          {values.accessData.createAccess && (
+          {!completionMode && values.accessData.createAccess && (
             <li className="flex items-start gap-2.5 text-xs text-slate-700">
               <CheckCircle2 className="size-4 text-emerald-600 flex-shrink-0 mt-0.5" />
               <div>

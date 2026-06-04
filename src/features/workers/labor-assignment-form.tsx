@@ -120,6 +120,7 @@ export function LaborAssignmentForm({ workerId }: LaborAssignmentFormProps) {
       setGlobalError(null);
       setSaved(false);
       const payload = {
+        assignment_type: "permanent" as const,
         ...(values.branchId ? { sede_id: values.branchId } : {}),
         ...(values.departmentId
           ? { internal_department_id: values.departmentId }

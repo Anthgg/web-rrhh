@@ -11,9 +11,9 @@ export interface PersonalDataPayload {
   secondaryPhone?: string;
   personalEmail?: string;
   address?: string;
-  district?: string;
-  province?: string;
   departmentId?: string;
+  provinceId?: string;
+  districtId?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
 }
@@ -21,6 +21,7 @@ export interface PersonalDataPayload {
 export interface LaborDataPayload {
   companyId: string;
   branchId?: string;
+  departmentId?: string;
   areaId: string;
   positionId: string;
   workLocationId: string;
@@ -30,6 +31,64 @@ export interface LaborDataPayload {
   supervisorId?: string;
   status: "active" | "inactive";
   requiresAttendance?: boolean;
+}
+
+export interface CompleteProfilePayload {
+  personalData?: {
+    firstName: string;
+    paternalLastName: string;
+    maternalLastName?: string;
+    dni: string;
+    email?: string;
+    phone?: string;
+    departmentId?: string;
+    department_id?: string;
+  };
+  laborData?: {
+    companyId: string;
+    branchId?: string;
+    departmentId: string;
+    department_id?: string;
+    internalDepartmentId?: string;
+    internal_department_id?: string;
+    areaId: string;
+    positionId: string;
+    workLocationId: string;
+    workerTypeId?: string;
+    startDate: string;
+    entryDate?: string;
+    status: "active" | "inactive";
+    shiftId?: string;
+    supervisorId?: string;
+  };
+  companyId?: string;
+  branchId?: string;
+  departmentId?: string;
+  department_id?: string;
+  internalDepartmentId?: string;
+  internal_department_id?: string;
+  areaId?: string;
+  positionId?: string;
+  workLocationId?: string;
+  workerTypeId?: string;
+  entryDate?: string;
+  status?: "active" | "inactive";
+  shiftId?: string;
+  supervisorId?: string;
+}
+
+export interface CompleteProfileUserPayload {
+  fullName: string;
+  firstName?: string;
+  lastName?: string;
+  documentNumber?: string;
+  birthDate?: string;
+  phone?: string;
+}
+
+export interface CompleteProfileWarning {
+  field?: string;
+  message: string;
 }
 
 export interface ContractDataPayload {
@@ -60,10 +119,50 @@ export interface AccessDataPayload {
 }
 
 export interface CreateOnboardingPayload {
+  onboardingContext?: {
+    mode: "create" | "complete";
+    source?: "user-detail" | string;
+    userId?: string;
+    workerId?: string;
+  };
   personalData: PersonalDataPayload;
   laborData: LaborDataPayload;
   contractData: ContractDataPayload;
   accessData: AccessDataPayload;
+}
+
+export interface OnboardingPrefillData {
+  personalData?: Partial<PersonalDataPayload>;
+  laborData?: Partial<LaborDataPayload & { departmentId?: string }>;
+  contractData?: Partial<ContractDataPayload>;
+  accessData?: Partial<AccessDataPayload>;
+  sourceUserId?: string;
+  sourceWorkerId?: string;
+  missingFields?: string[];
+}
+
+export interface OnboardingPrefillResponse {
+  success: boolean;
+  data?: OnboardingPrefillData;
+}
+
+export interface CompleteProfileResponse {
+  success: boolean;
+  data?: {
+    user?: Record<string, unknown>;
+    labor_data?: Record<string, unknown>;
+    laborData?: Record<string, unknown>;
+    catalogs?: Record<string, unknown>;
+    meta?: Record<string, unknown>;
+  };
+  warnings?: CompleteProfileWarning[];
+}
+
+export interface CompleteProfileSaveResponse {
+  success: boolean;
+  message?: string;
+  data?: Record<string, unknown>;
+  warnings?: CompleteProfileWarning[];
 }
 
 export interface ApiFieldError {
@@ -84,7 +183,7 @@ export interface OnboardingSuccessData {
   contract_id?: string;
   contract_pdf_url?: string;
   temporary_password?: string;
-  warnings?: string[];
+  warnings?: Array<string | CompleteProfileWarning>;
 }
 
 export interface OnboardingSuccessResponse {

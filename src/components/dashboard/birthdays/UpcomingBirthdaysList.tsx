@@ -1,7 +1,6 @@
-import Image from "next/image";
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
+import Image from "next/image";
 import { CalendarDays, Building2, CakeSlice } from "lucide-react";
 
 import type { BirthdayWorker } from "@/types";

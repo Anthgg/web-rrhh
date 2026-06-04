@@ -1,7 +1,6 @@
-import Image from "next/image";
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { BadgeCheck, ClipboardList, FileText, ScrollText } from "lucide-react";

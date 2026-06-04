@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { FieldFrame, Input, Select } from "@/components/ui/fields";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import type { CatalogItem } from "../types/onboarding.types";
 
 interface LaborDataFormProps {
   form: UseFormReturn<OnboardingFormValues>;
+  preservePositionOnAreaChange?: boolean;
   catalogs: {
     companies: CatalogItem[];
     branches: CatalogItem[];
@@ -26,7 +27,12 @@ interface LaborDataFormProps {
   };
 }
 
-export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
+const withAssignedOption = (items: CatalogItem[], selectedId: string | undefined, label: string): CatalogItem[] =>
+  selectedId && !items.some((item) => item.id === selectedId)
+    ? [{ id: selectedId, name: label }, ...items]
+    : items;
+
+export function LaborDataForm({ form, preservePositionOnAreaChange = false, catalogs }: LaborDataFormProps) {
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const {
     register,
@@ -40,8 +46,10 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
   const selectedDepartmentId = watch("laborData.departmentId");
   const selectedAreaId = watch("laborData.areaId");
   const selectedPositionId = watch("laborData.positionId");
+  const selectedWorkLocationId = watch("laborData.workLocationId");
   const selectedWorkerTypeId = watch("laborData.workerTypeId");
   const selectedShiftId = watch("laborData.shiftId");
+  const selectedSupervisorId = watch("laborData.supervisorId");
 
   // Auto-seleccionar cuando el catálogo tiene un único elemento disponible
   useEffect(() => {
@@ -60,19 +68,40 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
   ]);
 
   const selectedShift = catalogs.shifts.find((shift) => shift.id === selectedShiftId);
+  const filteredPositions = useMemo(() => {
+    if (!selectedAreaId) return catalogs.positions;
+    return catalogs.positions.filter((p) => p.areaId === selectedAreaId);
+  }, [catalogs.positions, selectedAreaId]);
+
+  const positionOptions = useMemo(
+    () => withAssignedOption(filteredPositions, selectedPositionId, "Cargo asignado actualmente"),
+    [filteredPositions, selectedPositionId],
+  );
+  const workLocationOptions = useMemo(
+    () => withAssignedOption(catalogs.workLocations, selectedWorkLocationId, "Lugar de trabajo asignado actualmente"),
+    [catalogs.workLocations, selectedWorkLocationId],
+  );
+  const workerTypeOptions = useMemo(
+    () => withAssignedOption(catalogs.workerTypes, selectedWorkerTypeId, "Tipo asignado actualmente"),
+    [catalogs.workerTypes, selectedWorkerTypeId],
+  );
+  const supervisorOptions = useMemo(
+    () => withAssignedOption(catalogs.supervisors || [], selectedSupervisorId, "Supervisor asignado actualmente"),
+    [catalogs.supervisors, selectedSupervisorId],
+  );
   const isCompanyLocked = catalogs.companies.length === 1;
   const hasSelectedDepartment = Boolean(selectedDepartmentId);
   const hasSelectedArea = Boolean(selectedAreaId);
   const hasAreas = catalogs.areas.length > 0;
-  const hasPositions = catalogs.positions.length > 0;
+  const hasPositions = positionOptions.length > 0;
 
   useEffect(() => {
-    if (!selectedPositionId || catalogs.isLoadingPositions || !hasPositions) return;
-    const selectedPositionExists = catalogs.positions.some((position) => position.id === selectedPositionId);
+    if (preservePositionOnAreaChange || !selectedPositionId || catalogs.isLoadingPositions || !hasPositions) return;
+    const selectedPositionExists = positionOptions.some((position) => position.id === selectedPositionId);
     if (!selectedPositionExists) {
       setValue("laborData.positionId", "", { shouldDirty: true, shouldValidate: true });
     }
-  }, [catalogs.isLoadingPositions, catalogs.positions, hasPositions, selectedPositionId, setValue]);
+  }, [catalogs.isLoadingPositions, hasPositions, positionOptions, preservePositionOnAreaChange, selectedPositionId, setValue]);
 
   return (
     <div className="space-y-6">
@@ -103,7 +132,7 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
             )}
           </FieldFrame>
 
-          <FieldFrame label="Sede de Trabajo" error={laborErrors?.branchId?.message}>
+          <FieldFrame label="Sede de Trabajo (opcional)" error={laborErrors?.branchId?.message}>
             <Select {...register("laborData.branchId")}>
               <option value="">Selecciona Sede...</option>
               {catalogs.branches.map((branch) => (
@@ -120,7 +149,9 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
               onChange={(event) => {
                 setValue("laborData.departmentId", event.target.value, { shouldValidate: true });
                 setValue("laborData.areaId", "", { shouldValidate: true });
-                setValue("laborData.positionId", "", { shouldValidate: true });
+                if (!preservePositionOnAreaChange) {
+                  setValue("laborData.positionId", "", { shouldValidate: true });
+                }
               }}
             >
               <option value="">Selecciona Departamento...</option>
@@ -139,7 +170,9 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
               className="disabled:bg-slate-50 disabled:opacity-50"
               onChange={(event) => {
                 setValue("laborData.areaId", event.target.value, { shouldValidate: true });
-                setValue("laborData.positionId", "", { shouldValidate: true });
+                if (!preservePositionOnAreaChange) {
+                  setValue("laborData.positionId", "", { shouldValidate: true });
+                }
               }}
             >
               <option value="">
@@ -170,7 +203,7 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
                   shouldValidate: true,
                 });
               }}
-              disabled={!hasSelectedArea || catalogs.isLoadingPositions || (hasSelectedArea && !hasPositions)}
+              disabled={(!hasSelectedArea && !selectedPositionId) || catalogs.isLoadingPositions || (hasSelectedArea && !hasPositions)}
               className="disabled:bg-slate-50 disabled:opacity-50"
             >
               <option value="">
@@ -178,11 +211,11 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
                   ? "Selecciona Area primero..."
                   : catalogs.isLoadingPositions
                     ? "Cargando cargos..."
-                    : hasPositions
+                  : hasPositions
                       ? "Selecciona Cargo..."
                       : "No hay cargos para esta area"}
               </option>
-              {catalogs.positions.map((position) => (
+              {positionOptions.map((position) => (
                 <option key={`pos-${position.id}`} value={position.id}>
                   {position.name}
                 </option>
@@ -192,9 +225,20 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
 
           <FieldFrame label="Lugar de Trabajo" error={laborErrors?.workLocationId?.message}>
             <div className="flex gap-2">
-              <Select {...register("laborData.workLocationId")} className="flex-1">
+              <Select
+                {...register("laborData.workLocationId")}
+                value={selectedWorkLocationId || ""}
+                onChange={(event) => {
+                  setValue("laborData.workLocationId", event.target.value, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
+                }}
+                className="flex-1"
+              >
                 <option value="">Selecciona Lugar de Trabajo...</option>
-                {catalogs.workLocations.map((loc) => (
+                {workLocationOptions.map((loc) => (
                   <option key={`loc-${loc.id}`} value={loc.id}>
                     {loc.name}
                   </option>
@@ -229,10 +273,20 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
           Detalles de Contratacion y Horario
         </h4>
         <div className="grid gap-4 md:grid-cols-2">
-          <FieldFrame label="Tipo de Colaborador" error={laborErrors?.workerTypeId?.message}>
-            <Select {...register("laborData.workerTypeId")}>
-              <option value="">Selecciona Tipo...</option>
-              {catalogs.workerTypes.map((workerType) => (
+          <FieldFrame label="Tipo de Colaborador (opcional)" error={laborErrors?.workerTypeId?.message}>
+            <Select
+              {...register("laborData.workerTypeId")}
+              value={selectedWorkerTypeId || ""}
+              onChange={(event) => {
+                setValue("laborData.workerTypeId", event.target.value, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+              }}
+            >
+              <option value="">Sin tipo asignado</option>
+              {workerTypeOptions.map((workerType) => (
                 <option key={`type-${workerType.id}`} value={workerType.id}>
                   {workerType.name}
                 </option>
@@ -262,10 +316,20 @@ export function LaborDataForm({ form, catalogs }: LaborDataFormProps) {
             </Select>
           </FieldFrame>
 
-          <FieldFrame label="Supervisor Directo" error={laborErrors?.supervisorId?.message}>
-            <Select {...register("laborData.supervisorId")}>
-              <option value="">Selecciona Supervisor...</option>
-              {catalogs.supervisors?.map((supervisor) => (
+          <FieldFrame label="Supervisor Directo (opcional)" error={laborErrors?.supervisorId?.message}>
+            <Select
+              {...register("laborData.supervisorId")}
+              value={selectedSupervisorId || ""}
+              onChange={(event) => {
+                setValue("laborData.supervisorId", event.target.value, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+              }}
+            >
+              <option value="">Sin supervisor directo</option>
+              {supervisorOptions.map((supervisor) => (
                 <option key={`sup-${supervisor.id}`} value={supervisor.id}>
                   {supervisor.name}
                 </option>

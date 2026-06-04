@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { RequestModalShell } from "@/components/requests/request-modal-shell";
 import { Button } from "@/components/ui/button";
 import { useDownloadReportPdf } from "@/hooks/reports/useDownloadReportPdf";
 import { type ReportPdfType } from "@/constants/reportEndpoints";
-import { 
-  FileText, 
+import {
+  FileText,
+  FileSpreadsheet,
   Loader2, 
   Filter, 
   Table, 
@@ -19,62 +20,82 @@ export interface ExportReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   reportType: ReportPdfType;
+  exportFormat?: "pdf" | "excel";
   activeFilters?: object;
+  activeFilterLabels?: Record<string, string>;
   tableData?: object[];
   tableColumns?: Array<{ key: string; label: string; widthRatio?: number }>;
   tableSummary?: Record<string, unknown>;
   filename?: string;
+  onDownload?: (payload: {
+    filename?: string;
+    filters: Record<string, unknown>;
+    customData?: {
+      columns: Array<{ key: string; label: string; widthRatio?: number }>;
+      rows: Array<Record<string, unknown>>;
+      summary?: Record<string, unknown>;
+    };
+  }) => Promise<void> | void;
 }
 
 // Defaults estables a nivel de módulo — evitan crear nuevas referencias en cada render
 const EMPTY_FILTERS = {} as object;
+const EMPTY_FILTER_LABELS: Record<string, string> = {};
 const EMPTY_TABLE_DATA: object[] = [];
 const EMPTY_TABLE_COLUMNS: Array<{ key: string; label: string; widthRatio?: number }> = [];
 
 const getRowValue = (row: object, key: string): unknown =>
   Object.prototype.hasOwnProperty.call(row, key) ? (row as Record<string, unknown>)[key] : undefined;
 
+const defaultFilterLabel = (key: string) =>
+  key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
 export function ExportReportModal({
   isOpen,
   onClose,
   reportType,
+  exportFormat = "pdf",
   activeFilters = EMPTY_FILTERS,
+  activeFilterLabels = EMPTY_FILTER_LABELS,
   tableData = EMPTY_TABLE_DATA,
   tableColumns = EMPTY_TABLE_COLUMNS,
   tableSummary,
   filename,
+  onDownload,
 }: ExportReportModalProps) {
   const [exportMode, setExportMode] = useState<"filters" | "table">("filters");
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [selectedColumns, setSelectedColumns] = useState<string[] | null>(null);
+  const [isCustomDownloading, setIsCustomDownloading] = useState(false);
   const activeFilterEntries = Object.entries(activeFilters);
   const activeFilterPayload = Object.fromEntries(activeFilterEntries);
+  const defaultSelectedColumns = tableColumns.map((c) => c.key);
+  const effectiveSelectedColumns = selectedColumns ?? defaultSelectedColumns;
+  const formatLabel = exportFormat === "excel" ? "Excel" : "PDF";
 
   // useRef en lugar de useState para tracking — el valor solo se muta, nunca se lee en el render
-  const prevIsOpenRef = useRef(isOpen);
-  const prevTableColumnsRef = useRef(tableColumns);
-
-  if (isOpen !== prevIsOpenRef.current || tableColumns !== prevTableColumnsRef.current) {
-    prevIsOpenRef.current = isOpen;
-    prevTableColumnsRef.current = tableColumns;
-    if (isOpen) {
-      setExportMode("filters");
-      setSelectedColumns(tableColumns.map((c) => c.key));
-    }
-  }
-
   // Habilitado si hay datos y columnas de la tabla disponibles
   const isTableModeAvailable = tableData.length > 0 && tableColumns.length > 0;
 
+  const handleClose = () => {
+    setExportMode("filters");
+    setSelectedColumns(null);
+    onClose();
+  };
+
   const { download, isDownloading } = useDownloadReportPdf(reportType, {
     onSuccess: () => {
-      onClose();
+      handleClose();
     }
   });
+  const isBusy = isDownloading || isCustomDownloading;
 
   const handleToggleColumn = (key: string) => {
-    setSelectedColumns(prev => 
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
+    setSelectedColumns((prev) => {
+      const current = prev ?? defaultSelectedColumns;
+      return current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
+    });
   };
 
   const handleSelectAllColumns = () => {
@@ -85,33 +106,50 @@ export function ExportReportModal({
     setSelectedColumns([]);
   };
 
-  const handleConfirmDownload = () => {
-    if (exportMode === "filters") {
-      // Flujo A: Enviar filtros directamente
-        download({
+  const buildCustomData = () => {
+    const activeCols = tableColumns.filter(c => effectiveSelectedColumns.includes(c.key));
+
+    return {
+      columns: activeCols.map(c => ({
+        key: c.key,
+        label: c.label,
+        widthRatio: c.widthRatio,
+      })),
+      rows: tableData.map(row => {
+        const rowData: Record<string, unknown> = {};
+        activeCols.forEach(col => {
+          rowData[col.key] = getRowValue(row, col.key);
+        });
+        return rowData;
+      }),
+      summary: tableSummary,
+    };
+  };
+
+  const handleConfirmDownload = async () => {
+    const customData = exportMode === "table" ? buildCustomData() : undefined;
+
+    if (onDownload) {
+      try {
+        setIsCustomDownloading(true);
+        await onDownload({
           filename,
+          filters: activeFilterPayload,
+          customData,
+        });
+        handleClose();
+      } finally {
+        setIsCustomDownloading(false);
+      }
+      return;
+    }
+
+    if (exportMode === "filters") {
+      download({
+        filename,
         filters: activeFilterPayload,
       });
     } else {
-      // Flujo B: Preparar y enviar estructura personalizada de datos
-      const activeCols = tableColumns.filter(c => selectedColumns.includes(c.key));
-      
-      const customData = {
-        columns: activeCols.map(c => ({
-          key: c.key,
-          label: c.label,
-          widthRatio: c.widthRatio,
-        })),
-        rows: tableData.map(row => {
-          const rowData: Record<string, unknown> = {};
-          activeCols.forEach(col => {
-            rowData[col.key] = getRowValue(row, col.key);
-          });
-          return rowData;
-        }),
-        summary: tableSummary,
-      };
-
       download({
         filename,
         filters: activeFilterPayload,
@@ -128,23 +166,27 @@ export function ExportReportModal({
 
   const modalFooter = (
     <div className="flex items-center justify-end gap-3">
-      <Button variant="ghost" onClick={onClose} disabled={isDownloading} className="rounded-xl">
+      <Button variant="ghost" onClick={handleClose} disabled={isBusy} className="rounded-xl">
         Cancelar
       </Button>
       <Button
         onClick={handleConfirmDownload}
-        disabled={isDownloading || (exportMode === "table" && selectedColumns.length === 0)}
+        disabled={isBusy || (exportMode === "table" && effectiveSelectedColumns.length === 0)}
         className="rounded-xl bg-blue-900 text-white hover:bg-blue-950 disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {isDownloading ? (
+        {isBusy ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" />
-            Generando PDF...
+            Generando {formatLabel}...
           </>
         ) : (
           <>
-            <FileText className="mr-2 size-4" />
-            Generar PDF corporativo
+            {exportFormat === "excel" ? (
+              <FileSpreadsheet className="mr-2 size-4" />
+            ) : (
+              <FileText className="mr-2 size-4" />
+            )}
+            Generar {formatLabel} corporativo
           </>
         )}
       </Button>
@@ -154,7 +196,7 @@ export function ExportReportModal({
   return (
     <RequestModalShell
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Exportar reporte corporativo"
       subtitle="El documento se generará usando la plantilla oficial configurada para FABRYOR."
       size="lg"
@@ -195,7 +237,7 @@ export function ExportReportModal({
                 <span className="font-semibold text-ink">Usar filtros actuales</span>
               </div>
               <p className="text-xs text-ink-soft leading-5">
-                Genera el reporte PDF consultando la base de datos con los filtros aplicados en el panel.
+                Genera el reporte {formatLabel} consultando la base de datos con los filtros aplicados en el panel.
               </p>
             </button>
 
@@ -222,7 +264,7 @@ export function ExportReportModal({
                 <span className="font-semibold text-ink">Usar datos de la tabla</span>
               </div>
               <p className="text-xs text-ink-soft leading-5">
-                Genera el PDF usando solo los datos cargados en pantalla, respetando columnas y orden actual.
+                Genera el {formatLabel} usando solo los datos cargados en pantalla, respetando columnas y orden actual.
               </p>
             </button>
           </div>
@@ -239,8 +281,12 @@ export function ExportReportModal({
               <div className="flex flex-wrap gap-2">
                 {visibleFilters.map(([key, val]) => (
                   <div key={key} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600">
-                    <span className="font-medium text-slate-400 capitalize">{key.replace("_", " ")}:</span>
-                    <span className="font-semibold text-slate-800">{String(val)}</span>
+                    <span className="font-medium text-slate-400">
+                      {defaultFilterLabel(key)}:
+                    </span>
+                    <span className="font-semibold text-slate-800">
+                      {activeFilterLabels[key] ?? (typeof val === "object" ? JSON.stringify(val) : String(val))}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -251,7 +297,7 @@ export function ExportReportModal({
             <div className="mt-4 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 rounded-xl p-3 border border-amber-200/50">
               <Info className="size-4 shrink-0 mt-0.5" />
               <p className="leading-5">
-                El backend procesará la consulta y generará el PDF corporativo completo basándose en estos filtros.
+                El backend procesará la consulta y generará el {formatLabel} corporativo completo basándose en estos filtros.
               </p>
             </div>
           </div>
@@ -283,7 +329,7 @@ export function ExportReportModal({
             
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {tableColumns.map(col => {
-                const isChecked = selectedColumns.includes(col.key);
+                const isChecked = effectiveSelectedColumns.includes(col.key);
                 return (
                   <label
                     key={col.key}
@@ -307,7 +353,7 @@ export function ExportReportModal({
             <div className="mt-2 rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-ink-soft flex items-center gap-2">
               <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
               <span>
-                Exportando <strong>{tableData.length}</strong> registros con <strong>{selectedColumns.length}</strong> columnas seleccionadas.
+                Exportando <strong>{tableData.length}</strong> registros con <strong>{effectiveSelectedColumns.length}</strong> columnas seleccionadas.
               </span>
             </div>
           </div>

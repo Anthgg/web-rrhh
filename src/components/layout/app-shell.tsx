@@ -24,9 +24,9 @@ import {
   UserCog,
   UserRoundCog,
   Users2,
+  UsersRound,
   X,
   Network,
-  MapPin,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
@@ -72,6 +72,7 @@ const navItems: NavItem[] = [
       { href: "/trabajadores/alta", label: "Alta de Colaborador", icon: FilePlus2 },
     ],
   },
+  { href: "/equipos-de-trabajo", label: "Equipos de Trabajo", icon: UsersRound },
   {
     href: "/reports",
     label: "Reportes",
@@ -90,7 +91,6 @@ const navItems: NavItem[] = [
     children: [
       { href: "/dashboard/settings/company", label: "Datos de empresa", icon: Building2 },
       { href: "/estructura", label: "Estructura", icon: Network },
-      { href: "/work-locations", label: "Lugares de trabajo", icon: MapPin },
       { href: "/dashboard/settings/organization", label: "Estructura (Legacy)", icon: Users2 },
     ],
   },

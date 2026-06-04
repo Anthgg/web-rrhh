@@ -78,14 +78,120 @@ export interface UserProfile {
   fullName: string;
   email: string;
   role: UserRole;
+  workerId?: string;
+  hasWorkerRecord?: boolean;
+  worker?: {
+    id: string;
+    personal_id?: string;
+    department_id?: string;
+    area_id?: string;
+    position_id?: string;
+    work_location_id?: string;
+    crew_id?: string;
+    supervisor_id?: string;
+    position?: string;
+    area_name?: string;
+    department_name?: string;
+    company_name?: string;
+    address?: string;
+    worker_type?: string;
+    branch_name?: string;
+    work_location_name?: string;
+    crew_name?: string;
+    supervisor_name?: string;
+    status?: string;
+    hire_date?: string;
+    attendance_radius?: number;
+  } | null;
+  supervisedCrew?: {
+    id: string;
+    name: string;
+    work_location_name?: string;
+  } | null;
   position: string;
   project?: string;
   department?: string;
   phone?: string;
+  documentNumber?: string;
   birthDate?: string;
   avatarUrl?: string;
   status: WorkerStatus;
   permissions: string[];
+  permissionsByModule?: Array<{
+    module: string;
+    access: string;
+    moduleLabel?: string;
+    accessLabel?: string;
+  }>;
+  security?: {
+    email_verified?: boolean | null;
+    password_change_required?: boolean | null;
+    active_sessions?: number | null;
+    failed_login_attempts?: number | null;
+  } | null;
+  activity?: Array<{
+    id: string;
+    action: string;
+    actionLabel?: string;
+    scope?: "actor" | "target" | string;
+    description?: string;
+    created_at?: string;
+    actor_name?: string;
+  }>;
+  documents?: WorkerGeneratedDocument[];
+  createdAt?: string;
+  lastLoginAt?: string;
+}
+
+export interface WorkerGeneratedDocument {
+  id: string;
+  name: string;
+  type: string;
+  generatedAt: string;
+  generatedBy: string;
+  url?: string;
+  fileName?: string;
+}
+
+export interface UserUpdatePayload {
+  firstName?: string;
+  lastName?: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  documentNumber?: string;
+  birthDate?: string;
+  role: string;
+  status: string;
+  isActive: boolean;
+  requiresPasswordChange: boolean;
+  emailVerified: boolean;
+}
+
+export interface TemporaryPasswordResetResult {
+  success: boolean;
+  temporaryPassword: string;
+  requiresPasswordChange: boolean;
+  generatedAt: string;
+}
+
+export interface WorkerLaborInfoPayload {
+  dni: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  company?: string;
+  departmentId: string;
+  areaId: string;
+  positionId: string;
+  workerType: string;
+  hireDate: string;
+  laborStatus: string;
+  workLocationId: string;
+  crewId?: string;
+  supervisorId?: string;
+  attendanceRadius?: number;
 }
 
 export interface SessionData {
@@ -241,6 +347,12 @@ export interface DocumentFilters {
 
 export interface WorkerRecord {
   id: string;
+  userId?: string;
+  user_id?: string | null;
+  worker_id?: string | null;
+  workerId?: string | null;
+  profile_status?: "complete" | "incomplete";
+  profileStatus?: "complete" | "incomplete";
   fullName: string;
   email: string;
   role: UserRole;
@@ -249,6 +361,7 @@ export interface WorkerRecord {
   department?: string;
   status: WorkerStatus;
   phone?: string;
+  documentNumber?: string;
   birthDate?: string;
   work_location_id?: string | null;
   work_location_name?: string | null;

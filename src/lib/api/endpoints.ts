@@ -70,9 +70,13 @@ export const adminApiEndpoints = {
     monthlySummaryPdf: ["/api/reports/monthly-summary/pdf", "/api/reports/monthly-summary/export/pdf"],
     vacationsPdf: ["/api/reports/vacations/pdf"],
     documentsPdf: ["/api/reports/documents/pdf"],
+    workCrewsPdf: ["/api/reports/work-crews/pdf"],
+    workCrewsExcel: ["/api/reports/work-crews/export/excel"],
     attendanceExcel: ["/api/reports/attendance/export/excel"],
     attendancePdf: ["/api/reports/attendance/export/pdf"],
     monthlySummaryExcel: ["/api/reports/monthly-summary/export/excel"],
+    workCrewsColumns: ["/api/reports/work-crews/columns"],
+    workCrewsPreview: ["/api/reports/work-crews/preview"],
   },
   payroll: {
     periods: ["/payroll/periods"],
@@ -84,6 +88,7 @@ export const webApiEndpoints = {
     login: "/api/auth/login",
     session: "/api/auth/session",
     logout: "/api/auth/logout",
+    verifyPassword: "/api/auth/verify-password",
   },
   dashboard: "/api/dashboard",
   requests: {
@@ -114,6 +119,7 @@ export const webApiEndpoints = {
   workers: {
     list: "/api/workers",
     laborAssignment: (id: string) => `/api/workers/${id}/labor-assignment`,
+    locationHistory: (id: string) => `/api/workers/${id}/location-history`,
   },
   users: "/api/users",
   companySettings: {
@@ -138,6 +144,10 @@ export const webApiEndpoints = {
     monthlySummaryPdf: "/api/reports/monthly-summary/pdf",
     vacationsPdf: "/api/reports/vacations/pdf",
     documentsPdf: "/api/reports/documents/pdf",
+    workCrewsPdf: "/api/reports/work-crews/export/pdf",
+    workCrewsExcel: "/api/reports/work-crews/export/excel",
+    workCrewsColumns: "/api/reports/work-crews/columns",
+    workCrewsPreview: "/api/reports/work-crews/preview",
   },
   reportTemplates: {
     list: "/api/report-templates",

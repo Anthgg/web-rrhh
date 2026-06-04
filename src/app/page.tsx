@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "FABRYOR - Portal",
-  description: "Portal administrativo de FABRYOR",
+  description: "Portal administrativo.",
 };
 
 export default function HomePage() {

@@ -1,6 +1,10 @@
 import { apiClient } from "@/lib/api/client";
 import type {
   CreateOnboardingPayload,
+  CompleteProfilePayload,
+  CompleteProfileResponse,
+  CompleteProfileSaveResponse,
+  CompleteProfileUserPayload,
   ContractDownloadResponse,
   OnboardingSuccessResponse,
   SuggestCredentialsPayload,
@@ -8,6 +12,7 @@ import type {
   GenerateContractPayload,
   GenerateContractResponse,
   OnboardingStatusResponse,
+  OnboardingPrefillResponse,
   CatalogItem,
   WorkerContractRecord,
 } from "../types/onboarding.types";
@@ -39,6 +44,29 @@ export const onboardingService = {
     apiClient<OnboardingSuccessResponse>("/api/workers/onboarding", {
       method: "POST",
       body: payload,
+    }),
+
+  getCompleteProfile: (userId: string) =>
+    apiClient<CompleteProfileResponse>(`/api/workers/complete-profile/${userId}`),
+
+  completeProfile: (userId: string, payload: CompleteProfilePayload) =>
+    apiClient<CompleteProfileSaveResponse>(`/api/workers/complete-profile/${userId}`, {
+      method: "PUT",
+      body: payload,
+    }),
+
+  updateCompleteProfileUser: (userId: string, payload: CompleteProfileUserPayload) =>
+    apiClient<unknown>(`/api/users/${userId}`, {
+      method: "PUT",
+      body: payload,
+    }),
+
+  getOnboardingPrefill: (params: { userId?: string | null; workerId?: string | null }) =>
+    apiClient<OnboardingPrefillResponse>("/api/workers/onboarding-prefill", {
+      query: {
+        ...(params.userId ? { userId: params.userId } : {}),
+        ...(params.workerId ? { workerId: params.workerId } : {}),
+      },
     }),
 
   listContracts: (workerId: string) =>

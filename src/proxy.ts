@@ -12,6 +12,7 @@ const protectedRoutePrefixes = [
   "/reportes",
   "/perfil",
   "/estructura",
+  "/equipos-de-trabajo",
 ] as const;
 
 const isProtectedPath = (pathname: string) =>
@@ -52,6 +53,8 @@ export const config = {
     "/trabajadores/:path*",
     "/reportes/:path*",
     "/perfil/:path*",
+    "/estructura/:path*",
     "/roles/:path*",
+    "/equipos-de-trabajo/:path*",
   ],
 };

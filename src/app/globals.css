@@ -148,3 +148,36 @@ textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* ─── Leaflet map fixes ─── */
+/*
+  Leaflet tiles appear blurry when a parent has a CSS transform
+  (e.g. the dashboard-rise animation adds translateY). The fix:
+  - Remove will-change / transform from the .leaflet-container and its
+    direct tile layer children so the browser composite layer is correct.
+  - Force image-rendering: pixelated is NOT what we want — we want
+    crisp-edges which keeps tiles sharp without blurring.
+*/
+.leaflet-container {
+  /* Isolate the map from parent transforms */
+  will-change: auto !important;
+  transform: none !important;
+  /* Prevent Next.js backdrop-filter modals from blurring tile images */
+  isolation: isolate;
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.leaflet-tile {
+  /* Ensure tiles are drawn at device pixel ratio — prevents blurriness */
+  image-rendering: auto;
+  will-change: auto !important;
+}
+
+.leaflet-tile-container {
+  will-change: auto !important;
+}
+
+/* Fix Leaflet popup z-index inside modals */
+.leaflet-popup {
+  z-index: 1000;
+}

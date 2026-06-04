@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Loader2, Save, UserPlus } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Loader2, Save, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useWorkerOnboarding } from "../hooks/useWorkerOnboarding";
@@ -13,11 +13,11 @@ import { PersonalDataForm } from "./PersonalDataForm";
 import { SignedContractUpload } from "./SignedContractUpload";
 
 const steps = [
-  { id: 1, label: "Datos personales" },
-  { id: 2, label: "Datos laborales" },
-  { id: 3, label: "Sueldo y condiciones" },
-  { id: 4, label: "Acceso al sistema" },
-  { id: 5, label: "Confirmacion final" },
+  { id: 1, label: "Datos personales", fieldPrefix: "personalData." },
+  { id: 2, label: "Datos laborales", fieldPrefix: "laborData." },
+  { id: 3, label: "Sueldo y condiciones", fieldPrefix: "contractData." },
+  { id: 4, label: "Acceso al sistema", fieldPrefix: "accessData." },
+  { id: 5, label: "Confirmacion final", fieldPrefix: "" },
 ];
 
 export function CreateWorkerForm() {
@@ -31,19 +31,28 @@ export function CreateWorkerForm() {
     isSubmitting,
     globalError,
     registrationResult,
+    completionMode,
+    completionSaved,
+    completionWarnings,
+    isLoadingPrefill,
+    missingFields,
     catalogs,
   } = useWorkerOnboarding();
 
   const contractId = registrationResult?.contract_id;
   const workerId = registrationResult?.worker_id;
+  const visibleSteps = completionMode ? steps.filter((item) => [1, 2, 5].includes(item.id)) : steps;
 
   return (
     <Card className="border border-border bg-white p-0 shadow-sm">
       <div className="border-b border-border/70 p-5">
-        <div className="grid gap-3 md:grid-cols-5">
-          {steps.map((item) => {
+        <div className={completionMode ? "grid gap-3 md:grid-cols-3" : "grid gap-3 md:grid-cols-5"}>
+          {visibleSteps.map((item) => {
             const isActive = item.id === step;
             const isDone = item.id < step;
+            const hasMissingFields = item.fieldPrefix
+              ? missingFields.some((field) => field.startsWith(item.fieldPrefix))
+              : missingFields.length > 0;
 
             return (
               <button
@@ -69,6 +78,9 @@ export function CreateWorkerForm() {
                 <span className={isActive ? "text-sm font-semibold text-ink" : "text-sm font-medium text-ink-soft"}>
                   {item.label}
                 </span>
+                {completionMode && hasMissingFields ? (
+                  <AlertTriangle className="ml-auto size-4 shrink-0 text-amber-500" aria-label="Campos pendientes" />
+                ) : null}
               </button>
             );
           })}
@@ -76,18 +88,50 @@ export function CreateWorkerForm() {
       </div>
 
       <form onSubmit={onSubmit} className="grid gap-6 p-5 md:p-7">
+        {isLoadingPrefill ? (
+          <div className="flex items-center gap-2 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+            <Loader2 className="size-4 animate-spin" />
+            Cargando datos existentes del trabajador
+          </div>
+        ) : null}
+
+        {completionMode && !isLoadingPrefill && missingFields.length > 0 ? (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <span>Completa los campos pendientes marcados antes de guardar la ficha.</span>
+          </div>
+        ) : null}
+
         {catalogs.isLoading && step !== 1 ? (
           <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             <Loader2 className="size-4 animate-spin" />
-            Cargando catalogos actualizados...
+            Cargando catalogos actualizados
           </div>
         ) : null}
 
         {step === 1 ? <PersonalDataForm form={form} /> : null}
-        {step === 2 ? <LaborDataForm form={form} catalogs={catalogs} /> : null}
+        {step === 2 ? <LaborDataForm form={form} catalogs={catalogs} preservePositionOnAreaChange={completionMode} /> : null}
         {step === 3 ? <ContractDataForm form={form} catalogs={catalogs} /> : null}
         {step === 4 ? <AccessDataForm form={form} roles={catalogs.roles} /> : null}
-        {step === 5 ? <OnboardingSummary form={form} catalogs={catalogs} /> : null}
+        {step === 5 ? <OnboardingSummary form={form} catalogs={catalogs} completionMode={completionMode} /> : null}
+
+        {completionSaved ? (
+          <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+            <span>Perfil laboral completado correctamente.</span>
+          </div>
+        ) : null}
+
+        {completionWarnings.length ? (
+          <div className="grid gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            {completionWarnings.map((warning) => (
+              <div key={`${warning.field || "warning"}-${warning.message}`} className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <span>{warning.message}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {step === 6 && workerId ? (
           <div className="grid gap-6">
@@ -133,7 +177,9 @@ export function CreateWorkerForm() {
             ) : (
               <Button type="submit" disabled={isSubmitting} className="gap-2">
                 {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
-                {isSubmitting ? "Creando trabajador..." : "Crear trabajador"}
+                {isSubmitting
+                  ? (completionMode ? "Guardando informacion" : "Creando trabajador")
+                  : (completionMode ? "Completar informacion" : "Crear trabajador")}
               </Button>
             )}
           </div>

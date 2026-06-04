@@ -37,6 +37,7 @@ import type {
   ReportSummaryResponse,
   ReportTemplate,
 } from "@/types/report.types";
+import { isUuid } from "@/lib/api/worker-ids";
 
 type LooseRecord = Record<string, unknown>;
 
@@ -87,6 +88,7 @@ const asNumber = (value: unknown) => {
   return null;
 };
 
+
 const asArray = (value: unknown) => (Array.isArray(value) ? value : []);
 
 const normalizeDateString = (value: unknown) => {
@@ -130,7 +132,7 @@ export function normalizeRole(value: unknown): UserRole {
 }
 
 export function normalizeUser(source: unknown): UserProfile {
-  const record = asRecord(source) ?? {};
+  const record = asRecord(firstValue(source, ["data"])) ?? asRecord(source) ?? {};
   const roleValue =
     firstValue(record, [
       "role.code",
@@ -175,6 +177,207 @@ export function normalizeUser(source: unknown): UserProfile {
     firstValue(record, ["status", "estado", "employment_status"]),
     ["active", "inactive", "on-leave"],
   );
+  const normalizedRole = normalizeRole(roleValue);
+  const workerRecord = asRecord(firstValue(record, ["worker"])) ?? null;
+  const rawWorkerId = firstValue(record, [
+    "workerId",
+    "worker_id",
+    "worker.id",
+    "worker.worker_id",
+    "employeeId",
+    "employee_id",
+    "profile.worker_id",
+    "data.worker_id",
+  ]);
+  const workerId = isUuid(rawWorkerId) ? rawWorkerId : undefined;
+  const rawWorkerRecordId = workerRecord ? firstValue(workerRecord, ["id", "worker_id", "workerId"]) : null;
+  const safeWorkerRecordId = isUuid(rawWorkerRecordId) ? rawWorkerRecordId : undefined;
+  const finalWorkerId = workerId || safeWorkerRecordId;
+
+  const worker = finalWorkerId
+    ? {
+        id: finalWorkerId,
+        personal_id:
+          asString(firstValue(record, ["worker.personal_id", "worker.personalId"])) ||
+          undefined,
+        department_id:
+          asString(firstValue(record, ["worker.department_id", "worker.departmentId", "worker.internal_department_id", "worker.internalDepartmentId", "department_id", "departmentId", "internal_department_id"])) ||
+          undefined,
+        area_id:
+          asString(firstValue(record, ["worker.area_id", "worker.areaId", "area_id", "areaId"])) ||
+          undefined,
+        position_id:
+          asString(firstValue(record, ["worker.position_id", "worker.positionId", "worker.job_position_id", "worker.jobPositionId", "position_id", "positionId", "job_position_id"])) ||
+          undefined,
+        work_location_id:
+          asString(firstValue(record, ["worker.work_location_id", "worker.workLocationId", "worker.work_location.id", "work_location_id", "workLocationId"])) ||
+          undefined,
+        crew_id:
+          asString(firstValue(record, ["worker.crew_id", "worker.crewId", "worker.crew.id", "crew_id", "crewId"])) ||
+          undefined,
+        supervisor_id:
+          asString(firstValue(record, ["worker.supervisor_id", "worker.supervisorId", "worker.supervisor.id", "supervisor_id", "supervisorId"])) ||
+          undefined,
+        position:
+          asString(firstValue(record, ["worker.position", "worker.job_position_name", "worker.position_name"])) ||
+          undefined,
+        area_name:
+          asString(firstValue(record, ["worker.area_name", "worker.area", "worker.department_name"])) ||
+          undefined,
+        department_name:
+          asString(firstValue(record, ["worker.department_name", "worker.department"])) ||
+          undefined,
+        company_name:
+          asString(firstValue(record, ["worker.company_name", "worker.company"])) ||
+          undefined,
+        address:
+          asString(firstValue(record, ["worker.address", "worker.direccion", "address", "direccion"])) ||
+          undefined,
+        worker_type:
+          asString(firstValue(record, ["worker.worker_type", "worker.workerType", "worker.type", "worker.tipo_trabajador", "worker_type", "workerType"])) ||
+          undefined,
+        branch_name:
+          asString(firstValue(record, ["worker.branch_name", "worker.branch", "worker.sede_name"])) ||
+          undefined,
+        work_location_name:
+          asString(firstValue(record, ["worker.work_location_name", "worker.workLocationName", "worker.work_location.name"])) ||
+          undefined,
+        crew_name:
+          asString(firstValue(record, ["worker.crew_name", "worker.crew.name"])) ||
+          undefined,
+        supervisor_name:
+          asString(firstValue(record, ["worker.supervisor_name", "worker.supervisor.name"])) ||
+          undefined,
+        status:
+          asString(firstValue(record, ["worker.status", "worker.employment_status", "worker.labor_status"])) ||
+          undefined,
+        hire_date:
+          asString(firstValue(record, ["worker.hire_date", "worker.hireDate", "worker.entry_date"])) ||
+          undefined,
+        attendance_radius:
+          asNumber(firstValue(record, ["worker.attendance_radius", "worker.attendanceRadius", "worker.allowed_radius_meters", "attendance_radius", "attendanceRadius"])) ??
+          undefined,
+      }
+    : null;
+  const supervisedCrewRecord = asRecord(firstValue(record, ["supervised_crew", "supervisedCrew"])) ?? null;
+  const supervisedCrew = supervisedCrewRecord
+    ? {
+        id: asString(firstValue(record, ["supervised_crew.id", "supervisedCrew.id"]), ""),
+        name: asString(firstValue(record, ["supervised_crew.name", "supervisedCrew.name"]), "Cuadrilla"),
+        work_location_name:
+          asString(
+            firstValue(record, [
+              "supervised_crew.work_location_name",
+              "supervisedCrew.work_location_name",
+              "supervisedCrew.workLocationName",
+            ]),
+          ) || undefined,
+      }
+    : null;
+  const workerSource = firstValue(record, ["worker", "employee", "personal", "labor_record", "laborRecord"]);
+  const position =
+    asString(
+      firstValue(record, [
+        "position",
+        "cargo",
+        "jobTitle",
+        "job_position_name",
+        "position_name",
+        "position.name",
+        "job_position.name",
+        "profile.position",
+        "worker.position",
+        "worker.cargo",
+        "worker.jobTitle",
+        "worker.job_position_name",
+        "worker.position_name",
+        "worker.position.name",
+        "worker.job_position.name",
+        "employee.position",
+        "employee.job_position_name",
+      ]),
+      "",
+    ) || "No informado";
+  const project =
+    asString(
+      firstValue(record, [
+        "project",
+        "obra",
+        "projectName",
+        "project_name",
+        "work_location_name",
+        "workLocationName",
+        "work_location.name",
+        "workLocation.name",
+        "current_location_name",
+        "currentLocationName",
+        "worker.project",
+        "worker.obra",
+        "worker.projectName",
+        "worker.project_name",
+        "worker.work_location_name",
+        "worker.workLocationName",
+        "worker.work_location.name",
+        "worker.current_location_name",
+        "employee.project",
+        "employee.work_location_name",
+      ]),
+    ) || undefined;
+  const department =
+    asString(
+      firstValue(record, [
+        "department",
+        "area",
+        "department_name",
+        "area_name",
+        "internal_department_name",
+        "department.name",
+        "area.name",
+        "worker.department",
+        "worker.area",
+        "worker.department_name",
+        "worker.area_name",
+        "worker.internal_department_name",
+        "worker.department.name",
+        "worker.area.name",
+        "employee.department",
+        "employee.area_name",
+      ]),
+    ) || undefined;
+  const explicitHasWorkerRecord = asBoolean(
+    firstValue(record, ["hasWorkerRecord", "has_worker_record", "linkedWorker", "linked_worker"]),
+  );
+  const hasWorkerRecord =
+    explicitHasWorkerRecord ??
+    Boolean(workerId || workerSource || position !== "No informado" || project || department);
+  const permissionsByModule = asArray(firstValue(record, ["permissions_by_module", "permissionsByModule"]))
+    .map((entry) => {
+      const item = asRecord(entry);
+      if (!item) return null;
+      return {
+        module: asString(firstValue(item, ["module", "name"]), "No informado"),
+        access: asString(firstValue(item, ["access", "level"]), "restricted"),
+        moduleLabel: asString(firstValue(item, ["moduleLabel", "module_label", "label"])) || undefined,
+        accessLabel: asString(firstValue(item, ["accessLabel", "access_label", "levelLabel", "level_label"])) || undefined,
+      };
+    })
+    .filter(Boolean) as UserProfile["permissionsByModule"];
+  const securityRecord = asRecord(firstValue(record, ["security"])) ?? null;
+  const activity = asArray(firstValue(record, ["activity", "audit_logs", "logs"]))
+    .map((entry) => {
+      const item = asRecord(entry);
+      if (!item) return null;
+      return {
+        id: asString(firstValue(item, ["id", "uuid"])) || `${asString(firstValue(item, ["action", "event"]), "event")}-${asString(firstValue(item, ["created_at", "createdAt", "date"]), "unknown")}`,
+        action: asString(firstValue(item, ["action", "event"]), "Evento"),
+        actionLabel: asString(firstValue(item, ["actionLabel", "action_label", "eventLabel", "event_label"])) || undefined,
+        scope: asString(firstValue(item, ["scope"])) || undefined,
+        description: asString(firstValue(item, ["description", "message"])) || undefined,
+        created_at: asString(firstValue(item, ["created_at", "createdAt", "date"])) || undefined,
+        actor_name: asString(firstValue(item, ["actor_name", "actorName", "actor.fullName", "actor.name"])) || undefined,
+      };
+    })
+    .filter(Boolean) as UserProfile["activity"];
 
   return {
     id: asString(firstValue(record, ["id", "userId", "user_id", "_id", "uuid"]), "No informado"),
@@ -191,16 +394,18 @@ export function normalizeUser(source: unknown): UserProfile {
       ]),
       "No informado",
     ),
-    role: normalizeRole(roleValue),
-    position: asString(
-      firstValue(record, ["position", "cargo", "jobTitle", "job_position_name"]),
-      "No informado",
-    ),
-    project:
-      asString(firstValue(record, ["project", "obra", "projectName", "project_name", "project_name"])) ||
-      undefined,
-    department: asString(firstValue(record, ["department", "area", "department_name"])) || undefined,
+    role: normalizedRole,
+    workerId,
+    hasWorkerRecord,
+    worker,
+    supervisedCrew,
+    position,
+    project,
+    department,
     phone: asString(firstValue(record, ["phone", "telefono", "phone_number"])) || undefined,
+    documentNumber:
+      asString(firstValue(record, ["document_number", "documentNumber", "document", "dni", "personal_id", "worker.personal_id"])) ||
+      undefined,
     birthDate:
       normalizeDateString(
         firstValue(record, ["birthDate", "birth_date", "date_of_birth", "fecha_nacimiento"]),
@@ -229,6 +434,18 @@ export function normalizeUser(source: unknown): UserProfile {
     permissions: asArray(firstValue(record, ["permissions", "permisos"])).map((item) =>
       asString(item),
     ),
+    permissionsByModule,
+    security: securityRecord
+      ? {
+          email_verified: asBoolean(firstValue(securityRecord, ["email_verified", "emailVerified"])),
+          password_change_required: asBoolean(firstValue(securityRecord, ["password_change_required", "passwordChangeRequired"])),
+          active_sessions: asNumber(firstValue(securityRecord, ["active_sessions", "activeSessions"])),
+          failed_login_attempts: asNumber(firstValue(securityRecord, ["failed_login_attempts", "failedLoginAttempts"])),
+        }
+      : null,
+    activity,
+    createdAt: asString(firstValue(record, ["createdAt", "created_at", "fecha_creacion", "fechaCreacion"])) || undefined,
+    lastLoginAt: asString(firstValue(record, ["lastLoginAt", "last_login_at", "ultimo_acceso"])) || undefined,
   };
 }
 
@@ -1585,10 +1802,61 @@ export function normalizeDocumentRecord(source: unknown): DocumentRecord {
 export function normalizeWorkerRecord(source: unknown): WorkerRecord {
   const payload = firstValue(source, ["data"]) ?? source;
   const user = normalizeUser(payload);
+  const workerIdCandidates = [
+    "worker_id",
+    "workerId",
+    "id",
+    "uuid",
+    "worker.id",
+    "worker.uuid",
+    "employee.id",
+    "employee.uuid",
+    "user.worker_id",
+    "user.workerId",
+  ];
+  const rawWorkerId = workerIdCandidates
+    .map((path) => firstValue(payload, [path]))
+    .find((val) => isUuid(val));
+  const workerId = rawWorkerId || (isUuid(user.workerId) ? user.workerId : undefined) || (isUuid(user.worker?.id) ? user.worker.id : undefined);
 
+  const rawUserId = firstValue(payload, [
+    "user_id",
+    "userId",
+    "user.id",
+    "user.uuid",
+    "account_id",
+    "accountId",
+  ]);
+  const userId = isUuid(rawUserId) ? rawUserId : (isUuid(user.id) ? user.id : undefined);
+
+  const documentNumber =
+    asString(
+      firstValue(payload, [
+        "document_number",
+        "documentNumber",
+        "dni",
+        "personal_id",
+        "personalId",
+        "employee_id",
+        "employeeId",
+        "worker.personal_id",
+        "worker.personalId",
+      ]),
+    ) ||
+    user.documentNumber ||
+    undefined;
+
+  const safeWorkerId = workerId || "";
+  const safeUserId = userId || undefined;
 
   return {
-    id: user.id,
+    id: safeWorkerId,
+    worker_id: safeWorkerId || null,
+    workerId: safeWorkerId || null,
+    userId: safeUserId,
+    user_id: safeUserId || null,
+    profile_status: safeWorkerId ? "complete" : "incomplete",
+    profileStatus: safeWorkerId ? "complete" : "incomplete",
     fullName: user.fullName,
     email: user.email,
     role: user.role === "unknown" ? "worker" : user.role,
@@ -1597,6 +1865,7 @@ export function normalizeWorkerRecord(source: unknown): WorkerRecord {
     department: user.department,
     status: user.status,
     phone: user.phone,
+    documentNumber,
     birthDate: normalizeDateString(
       firstValue(payload, ["birthDate", "birth_date", "date_of_birth", "fecha_nacimiento"]),
     ) || undefined,

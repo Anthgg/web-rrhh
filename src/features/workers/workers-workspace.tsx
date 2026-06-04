@@ -21,6 +21,7 @@ import { formatRole } from "@/lib/utils/format";
 import { workersService } from "@/services/workers.service";
 import type { WorkerRecord } from "@/types";
 import { WorkerContractsTable } from "@/features/workers/worker-contracts-table";
+import { getSafeWorkerId, getSafeUserId, isWorkerProfileComplete } from "@/lib/api/worker-ids";
 
 const workerColumnsForExport = [
   { key: "fullName", label: "Trabajador" },
@@ -63,6 +64,9 @@ export function WorkersWorkspace() {
           <div className="grid gap-1">
             <strong className="font-semibold text-ink">{item.fullName}</strong>
             <span className="text-xs text-ink-soft">{item.email}</span>
+            {item.documentNumber ? (
+              <span className="text-xs text-ink-soft">DNI: {item.documentNumber}</span>
+            ) : null}
           </div>
         ),
       },
@@ -102,21 +106,37 @@ export function WorkersWorkspace() {
         className: "text-right",
         render: (item) => (
           <div className="flex justify-end gap-2">
-            <Link href={`/trabajadores/${item.id}`}>
-              <Button type="button" variant="secondary" className="h-9 gap-1.5 px-3 text-xs">
-                <Eye className="size-3.5" />
-                Perfil
+            {isWorkerProfileComplete(item) ? (
+              <>
+                <Link href={`/trabajadores/${getSafeWorkerId(item)}`}>
+                  <Button type="button" variant="secondary" className="h-9 gap-1.5 px-3 text-xs">
+                    <Eye className="size-3.5" />
+                    Perfil
+                  </Button>
+                </Link>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setContractsWorker(item)}
+                  className="h-9 gap-1.5 px-3 text-xs"
+                >
+                  <BriefcaseBusiness className="size-3.5" />
+                  Contratos
+                </Button>
+              </>
+            ) : getSafeUserId(item) ? (
+              <Link href={`/trabajadores/alta?mode=complete&userId=${getSafeUserId(item)}`}>
+                <Button type="button" variant="secondary" className="h-9 gap-1.5 px-3 text-xs">
+                  <UserPlus className="size-3.5" />
+                  Completar ficha
+                </Button>
+              </Link>
+            ) : (
+              <Button type="button" variant="secondary" disabled className="h-9 gap-1.5 px-3 text-xs">
+                <BriefcaseBusiness className="size-3.5" />
+                Sin ficha
               </Button>
-            </Link>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setContractsWorker(item)}
-              className="h-9 gap-1.5 px-3 text-xs"
-            >
-              <BriefcaseBusiness className="size-3.5" />
-              Contratos
-            </Button>
+            )}
           </div>
         ),
       },
@@ -236,7 +256,7 @@ export function WorkersWorkspace() {
         onClose={() => setContractsWorker(null)}
         size="xl"
       >
-        {contractsWorker ? <WorkerContractsTable workerId={contractsWorker.id} /> : null}
+        {contractsWorker ? <WorkerContractsTable workerId={getSafeWorkerId(contractsWorker) || ""} /> : null}
       </RequestModalShell>
     </>
   );

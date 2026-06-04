@@ -1,0 +1,49 @@
+import { Users, UserCheck, UserMinus, Clock, Activity, CalendarSync } from "lucide-react";
+
+interface WorkTeamSummaryCardsProps {
+  totalWorkers: number;
+  inMainLocation: number;
+  tempMoved: number;
+  expiredAssignments: number;
+  totalMovements: number; // can be "N/A" if not supported yet
+  lastUpdated: string;
+}
+
+export function WorkTeamSummaryCards({ 
+  totalWorkers, 
+  inMainLocation, 
+  tempMoved, 
+  expiredAssignments,
+  totalMovements,
+  lastUpdated
+}: WorkTeamSummaryCardsProps) {
+  
+  const cards = [
+    { label: "Total Trabajadores", value: totalWorkers, icon: Users, color: "text-slate-600", bg: "bg-slate-100", border: "border-slate-200" },
+    { label: "En Obra Principal", value: inMainLocation, icon: UserCheck, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" },
+    { label: "Movidos Temporal", value: tempMoved, icon: UserMinus, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
+    { label: "Asignaciones Vencidas", value: expiredAssignments, icon: Clock, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-200" },
+    { label: "Movimientos Registrados", value: totalMovements ?? 0, icon: Activity, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
+    { label: "Última Actualización", value: lastUpdated, icon: CalendarSync, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 p-6 bg-slate-50 border-b border-slate-200 shrink-0">
+      {cards.map((card, idx) => {
+        const Icon = card.icon;
+        return (
+          <div key={idx} className={`flex flex-col p-4 rounded-2xl bg-white border ${card.border} shadow-sm relative overflow-hidden group`}>
+            <div className={`absolute -right-4 -top-4 size-16 rounded-full opacity-20 transition-transform group-hover:scale-150 ${card.bg}`} />
+            <div className="flex items-center gap-3 mb-3 relative z-10">
+              <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${card.bg} ${card.color}`}>
+                <Icon className="size-4" />
+              </div>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide leading-tight">{card.label}</h3>
+            </div>
+            <div className="text-2xl font-bold text-slate-900 relative z-10">{card.value}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

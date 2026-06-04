@@ -9,8 +9,9 @@ import { AreasWorkspace } from "@/features/areas/areas-workspace";
 import { RolesWorkspace } from "@/features/roles/roles-workspace";
 import { PositionsTab } from "@/components/settings/organization/tabs/PositionsTab";
 import { WorkLocationsTab } from "@/components/settings/organization/tabs/WorkLocationsTab";
+import { WorkCrewsWorkspace } from "@/features/work-crews/work-crews-workspace";
 
-type OrgTab = "departments" | "areas" | "roles" | "positions" | "work-locations";
+type OrgTab = "departments" | "areas" | "roles" | "positions" | "work-locations" | "work-crews";
 
 const ORG_TABS = [
   { id: "departments", label: "Departamentos", icon: Building2 },
@@ -18,6 +19,7 @@ const ORG_TABS = [
   { id: "positions", label: "Puestos", icon: UsersRound },
   { id: "roles", label: "Roles de Sistema", icon: ShieldCheck },
   { id: "work-locations", label: "Lugares de Trabajo", icon: MapPin },
+  { id: "work-crews", label: "Cuadrillas", icon: UsersRound },
 ];
 
 export function OrganizationWorkspace() {
@@ -56,6 +58,7 @@ export function OrganizationWorkspace() {
         {activeTab === "positions" && <PositionsTab />}
         {activeTab === "roles" && <RolesWorkspace hideHeader />}
         {activeTab === "work-locations" && <WorkLocationsTab />}
+        {activeTab === "work-crews" && <WorkCrewsWorkspace hideHeader />}
       </div>
     </div>
   );
