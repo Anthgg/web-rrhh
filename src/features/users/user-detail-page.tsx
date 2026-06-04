@@ -822,12 +822,18 @@ function PermissionsTab({ user, model }: { user: UserProfile; model: UserDetailM
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {(user.permissionsByModule?.length ? user.permissionsByModule : moduleLabels.map((module) => ({ module, access: "Permisos detallados no disponibles", moduleLabel: module, accessLabel: "Permisos detallados no disponibles" }))).map((permission) => (
-              <tr key={`${permission.module}-${permission.access}`}>
-                <td className="px-4 py-3 font-medium text-ink">{permission.moduleLabel || formatPermissionLabel(permission.module)}</td>
-                <td className="px-4 py-3 text-ink-soft">{permission.accessLabel || ACCESS_LEVEL_LABELS[permission.access] || translateBackendValue(permission.access, accessLabels)}</td>
-              </tr>
-            ))}
+            {(user.permissionsByModule?.length ? user.permissionsByModule : moduleLabels.map((module) => ({ module, access: "Permisos detallados no disponibles", moduleLabel: module, accessLabel: "Permisos detallados no disponibles" }))).map((permission) => {
+              const rawModule = permission.moduleLabel || permission.module || "";
+              const rawAccess = permission.access || permission.accessLabel || "";
+              const accessTranslation = ACCESS_LEVEL_LABELS[rawAccess.toLowerCase()] || translateBackendValue(rawAccess, accessLabels);
+              
+              return (
+                <tr key={`${permission.module}-${permission.access}`}>
+                  <td className="px-4 py-3 font-medium text-ink">{formatPermissionLabel(rawModule)}</td>
+                  <td className="px-4 py-3 text-ink-soft">{accessTranslation}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -935,7 +941,7 @@ function SecurityActionCard({ icon, title, status, actions }: { icon: React.Reac
 function ActivityTab({ user }: { user: UserProfile }) {
   const activities = user.activity?.length
     ? user.activity.map((item) => [
-        item.actionLabel || formatActivityAction(item.action || ""),
+        formatActivityAction(item.actionLabel || item.action || ""),
         formatDateTime(item.created_at),
         formatActivityDescription(item) || `${item.scope === "actor" ? "Acción realizada por el usuario" : item.scope === "target" ? "Acción realizada sobre este usuario" : "Actividad registrada"}${item.actor_name ? ` por ${item.actor_name}` : ""}.`,
       ])

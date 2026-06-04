@@ -501,7 +501,7 @@ function UserSecuritySection({
 function UserActivityTimeline({ user }: { user: UserProfile }) {
   const activities = user.activity?.length
     ? user.activity.map((activity) => ({
-        title: formatActivityAction(activity.action || "Actividad"),
+        title: formatActivityAction(activity.actionLabel || activity.action || "Actividad"),
         date: activity.created_at ? formatDateTime(activity.created_at) : "Sin fecha",
         description:
           formatActivityDescription(activity) ||
