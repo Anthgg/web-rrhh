@@ -12,6 +12,7 @@ import type {
  BirthdayWorker,
  UserProfile,
  UserRole,
+ VisualPreferences,
  WorkerRecord,
  CrewWorkerItem,
  ProfileEditableFields,
@@ -128,6 +129,55 @@ const cleanAvatarUrl = (url: unknown): string | null => {
 
  return trimmed;
 };
+
+const DEFAULT_VISUAL_PREFERENCES: VisualPreferences = {
+ theme: "system",
+ density: "comfortable",
+ accentColor: "green",
+};
+
+const allowedPreferenceValues = {
+ theme: ["light", "dark", "system"],
+ density: ["comfortable", "compact"],
+ accentColor: ["green", "blue", "purple", "gray"],
+} as const;
+
+const isAllowedPreferenceValue = <K extends keyof VisualPreferences>(
+ key: K,
+ value: string,
+): value is VisualPreferences[K] =>
+ (allowedPreferenceValues[key] as readonly string[]).includes(value);
+
+export function normalizeVisualPreferences(source: unknown): VisualPreferences | null {
+ const record =
+ asRecord(
+ firstValue(source, [
+ "preferences",
+ "visualPreferences",
+ "visual_preferences",
+ "data.preferences",
+ "data.visualPreferences",
+ "data.visual_preferences",
+ "data",
+ ]),
+ ) ?? asRecord(source);
+
+ if (!record) return null;
+
+ const rawTheme = asString(firstValue(record, ["theme"]));
+ const rawDensity = asString(firstValue(record, ["density"]));
+ const rawAccentColor = asString(firstValue(record, ["accentColor", "accent_color"]));
+
+ if (!rawTheme && !rawDensity && !rawAccentColor) return null;
+
+ return {
+ theme: isAllowedPreferenceValue("theme", rawTheme) ? rawTheme : DEFAULT_VISUAL_PREFERENCES.theme,
+ density: isAllowedPreferenceValue("density", rawDensity) ? rawDensity : DEFAULT_VISUAL_PREFERENCES.density,
+ accentColor: isAllowedPreferenceValue("accentColor", rawAccentColor)
+ ? rawAccentColor
+ : DEFAULT_VISUAL_PREFERENCES.accentColor,
+ };
+}
 
 const normalizeDateString = (value: unknown) => {
  const rawValue = asString(value);
@@ -479,6 +529,16 @@ export function normalizeUser(source: unknown): UserProfile {
  "picture_url",
  ]),
  ) || null) as any,
+ preferences: normalizeVisualPreferences(record),
+ forcePasswordChange:
+ asBoolean(
+ firstValue(record, [
+ "forcePasswordChange",
+ "force_password_change",
+ "security.forcePasswordChange",
+ "security.force_password_change",
+ ]),
+ ) ?? null,
  gender: (asString(firstValue(record, ["gender", "genero", "sexo", "worker.gender", "worker.genero", "worker.sexo"])) || null) as any,
  genderLabel: (asString(firstValue(record, ["genderLabel", "gender_label", "genero_label", "worker.genderLabel", "worker.gender_label", "worker.genero_label"])) || null) as any,
  civilStatus: (asString(firstValue(record, ["civilStatus", "civil_status", "estado_civil", "estadoCivil", "worker.civilStatus", "worker.civil_status", "worker.estado_civil", "worker.estadoCivil"])) || null) as any,
@@ -648,6 +708,8 @@ export function normalizeSession(payload: unknown): SessionData {
  const mergedUserNode = {
  ...userNode,
  ...(workerNode ? { worker: workerNode } : {}),
+ ...(dataWrapper?.preferences ? { preferences: dataWrapper.preferences } : {}),
+ ...(root.preferences ? { preferences: root.preferences } : {}),
  };
 
  return {

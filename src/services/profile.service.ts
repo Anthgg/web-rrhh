@@ -9,7 +9,7 @@ import type { ChangePasswordPayload, ProfileEditableFields } from "@/types";
  * Returns the raw backend response so normalizeCurrentUserProfile can process it.
  */
 export async function getCurrentProfile(): Promise<unknown> {
- return apiClient<unknown>(webApiEndpoints.profile.current);
+ return apiClient<unknown>(webApiEndpoints.profile.me);
 }
 
 /**

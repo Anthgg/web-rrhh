@@ -1,5 +1,11 @@
 export type UserRole = "worker" | "supervisor" | "admin" | "hr" | "super_admin" | "unknown";
 
+export interface VisualPreferences {
+ theme: "light" | "dark" | "system";
+ density: "comfortable" | "compact";
+ accentColor: "green" | "blue" | "purple" | "gray";
+}
+
 export type CompanyAssetType = "logo" | "signature" | "stamp";
 
 export interface CompanySettings {
@@ -122,6 +128,8 @@ export interface UserProfile {
  personalId?: string | null;
  birthDate?: string | null;
  avatarUrl?: string | null;
+ preferences?: VisualPreferences | null;
+ forcePasswordChange?: boolean | null;
  gender?: string | null;
  genderLabel?: string | null;
  civilStatus?: string | null;
@@ -610,4 +618,3 @@ export interface CreateTemporaryAssignmentPayload {
  endDate: string;
  autoReturn?: boolean;
 }
-

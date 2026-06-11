@@ -10,7 +10,7 @@ export async function GET() {
  const context = await getSessionContext();
 
  const response = await backendRequest({
- pathCandidates: [...backendRoutes.profile.current, ...backendRoutes.auth.profile],
+ pathCandidates: [...backendRoutes.users.current, ...backendRoutes.profile.current, ...backendRoutes.auth.profile],
  accessToken: context.accessToken,
  refreshToken: context.refreshToken,
  });

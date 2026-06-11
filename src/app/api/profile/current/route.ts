@@ -30,6 +30,9 @@ function mergeSessionData(baseSession: SessionData, nextSession: SessionData): S
  phone: nextSession.user.phone ?? baseSession.user.phone,
  birthDate: nextSession.user.birthDate ?? baseSession.user.birthDate,
  avatarUrl: nextSession.user.avatarUrl ?? baseSession.user.avatarUrl,
+ preferences: nextSession.user.preferences ?? baseSession.user.preferences,
+ forcePasswordChange:
+ nextSession.user.forcePasswordChange ?? baseSession.user.forcePasswordChange,
  status: nextSession.user.status !== "unknown" ? nextSession.user.status : baseSession.user.status,
  permissions: nextSession.user.permissions.length
  ? nextSession.user.permissions

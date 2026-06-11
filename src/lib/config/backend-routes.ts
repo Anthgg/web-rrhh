@@ -62,6 +62,8 @@ export const backendRoutes = {
  },
  users: {
  list: adminApiEndpoints.users.list,
+ current: adminApiEndpoints.users.current,
+ preferences: adminApiEndpoints.users.preferences,
  detail: (id: string) => appendId(adminApiEndpoints.users.list, id),
  create: adminApiEndpoints.users.list,
  update: (id: string) => appendId(adminApiEndpoints.users.list, id),

@@ -7,7 +7,7 @@ export const backendBaseUrl =
 export const adminApiEndpoints = {
  auth: {
  login: ["/api/login"],
- profile: ["/api/profile/current", "/profile", "/api/profile", "/api/users/me", "/api/profile/me"],
+ profile: ["/api/users/me", "/api/profile/current", "/profile", "/api/profile", "/api/profile/me"],
  refresh: ["/api/auth/refresh", "/auth/refresh-token"],
  },
  dashboard: {
@@ -43,6 +43,8 @@ export const adminApiEndpoints = {
  },
  users: {
  list: ["/api/users"],
+ current: ["/api/users/me"],
+ preferences: ["/api/users/me/preferences"],
  },
  companySettings: {
  settings: ["/api/company-settings"],
@@ -57,7 +59,7 @@ export const adminApiEndpoints = {
  list: ["/api/roles"],
  },
  profile: {
- current: ["/api/profile/current", "/profile", "/api/profile"],
+ current: ["/api/users/me", "/api/profile/current", "/profile", "/api/profile"],
  update: ["/api/profile/current", "/profile", "/api/profile"],
  changePassword: ["/api/profile/password", "/profile/change-password"],
  },
@@ -133,9 +135,11 @@ export const webApiEndpoints = {
  },
  roles: "/api/roles",
  profile: {
+ me: "/api/users/me",
  current: "/api/profile/current",
  password: "/api/profile/password",
  photo: "/api/profile/photo",
+ preferences: "/api/users/me/preferences",
  },
  reports: "/api/reports",
  corporateReports: {
