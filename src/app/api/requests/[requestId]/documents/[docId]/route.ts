@@ -6,19 +6,19 @@ import { backendRoutes } from "@/lib/config/backend-routes";
 type DocumentRouteContext = { params: Promise<{ requestId: string; docId: string }> };
 
 export async function DELETE(_request: Request, context: DocumentRouteContext) {
-  try {
-    const { requestId, docId } = await context.params;
-    const sessionContext = await getSessionContext();
+ try {
+ const { requestId, docId } = await context.params;
+ const sessionContext = await getSessionContext();
 
-    const response = await backendRequest({
-      pathCandidates: backendRoutes.requests.document(requestId, docId),
-      method: "DELETE",
-      accessToken: sessionContext.accessToken,
-      refreshToken: sessionContext.refreshToken,
-    });
+ const response = await backendRequest({
+ pathCandidates: backendRoutes.requests.document(requestId, docId),
+ method: "DELETE",
+ accessToken: sessionContext.accessToken,
+ refreshToken: sessionContext.refreshToken,
+ });
 
-    return jsonResponse(response.data);
-  } catch (error) {
-    return handleRouteError(error);
-  }
+ return jsonResponse(response.data);
+ } catch (error) {
+ return handleRouteError(error);
+ }
 }

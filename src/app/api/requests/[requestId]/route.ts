@@ -8,50 +8,50 @@ import { parseProxyBody } from "@/app/api/requests/request-route-utils";
 type RequestRouteContext = { params: Promise<{ requestId: string }> };
 
 async function updateRequest(
-  request: Request,
-  context: RequestRouteContext,
-  method: "PATCH" | "PUT",
+ request: Request,
+ context: RequestRouteContext,
+ method: "PATCH" | "PUT",
 ) {
-  try {
-    const payload = await parseProxyBody(request);
-    const { requestId } = await context.params;
-    const sessionContext = await getSessionContext();
+ try {
+ const payload = await parseProxyBody(request);
+ const { requestId } = await context.params;
+ const sessionContext = await getSessionContext();
 
-    const response = await backendRequest({
-      pathCandidates: backendRoutes.requests.detail(requestId),
-      method,
-      body: payload,
-      accessToken: sessionContext.accessToken,
-      refreshToken: sessionContext.refreshToken,
-    });
+ const response = await backendRequest({
+ pathCandidates: backendRoutes.requests.detail(requestId),
+ method,
+ body: payload,
+ accessToken: sessionContext.accessToken,
+ refreshToken: sessionContext.refreshToken,
+ });
 
-    return jsonResponse(normalizeRequestDetail(response.data));
-  } catch (error) {
-    return handleRouteError(error);
-  }
+ return jsonResponse(normalizeRequestDetail(response.data));
+ } catch (error) {
+ return handleRouteError(error);
+ }
 }
 
 export async function GET(_request: Request, context: RequestRouteContext) {
-  try {
-    const { requestId } = await context.params;
-    const sessionContext = await getSessionContext();
+ try {
+ const { requestId } = await context.params;
+ const sessionContext = await getSessionContext();
 
-    const response = await backendRequest({
-      pathCandidates: backendRoutes.requests.detail(requestId),
-      accessToken: sessionContext.accessToken,
-      refreshToken: sessionContext.refreshToken,
-    });
+ const response = await backendRequest({
+ pathCandidates: backendRoutes.requests.detail(requestId),
+ accessToken: sessionContext.accessToken,
+ refreshToken: sessionContext.refreshToken,
+ });
 
-    return jsonResponse(normalizeRequestDetail(response.data));
-  } catch (error) {
-    return handleRouteError(error);
-  }
+ return jsonResponse(normalizeRequestDetail(response.data));
+ } catch (error) {
+ return handleRouteError(error);
+ }
 }
 
 export async function PATCH(request: Request, context: RequestRouteContext) {
-  return updateRequest(request, context, "PATCH");
+ return updateRequest(request, context, "PATCH");
 }
 
 export async function PUT(request: Request, context: RequestRouteContext) {
-  return updateRequest(request, context, "PUT");
+ return updateRequest(request, context, "PUT");
 }

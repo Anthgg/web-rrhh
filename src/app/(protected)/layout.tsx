@@ -1,9 +1,9 @@
 import { ProtectedShell } from "@/components/layout/app-shell";
 
 export default function ProtectedLayout({
-  children,
+ children,
 }: {
-  children: React.ReactNode;
+ children: React.ReactNode;
 }) {
-  return <ProtectedShell>{children}</ProtectedShell>;
+ return <ProtectedShell>{children}</ProtectedShell>;
 }

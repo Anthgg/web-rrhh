@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function LegacyRequestsPage() {
-  redirect("/dashboard/requests");
+ redirect("/dashboard/requests");
 }

@@ -9,36 +9,36 @@ import { appConfig } from "@/lib/config/app-config";
 import { AppProviders } from "@/providers/app-providers";
 
 const headingFont = Manrope({
-  subsets: ["latin"],
-  variable: "--font-heading",
+ subsets: ["latin"],
+ variable: "--font-heading",
 });
 
 const bodyFont = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-body",
+ subsets: ["latin"],
+ weight: ["400", "500", "600", "700"],
+ variable: "--font-body",
 });
 
 export const metadata: Metadata = {
-  title: `${appConfig.appName} | Gestión administrativa`,
-  description: "Panel administrativo.",
+ title: `${appConfig.appName} | Gestión administrativa`,
+ description: "Panel administrativo.",
 };
 
 export default async function RootLayout({
-  children,
+ children,
 }: Readonly<{
-  children: React.ReactNode;
+ children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const hasSessionCandidate = Boolean(
-    cookieStore.get(ACCESS_TOKEN_COOKIE)?.value || cookieStore.get(REFRESH_TOKEN_COOKIE)?.value,
-  );
+ const cookieStore = await cookies();
+ const hasSessionCandidate = Boolean(
+ cookieStore.get(ACCESS_TOKEN_COOKIE)?.value || cookieStore.get(REFRESH_TOKEN_COOKIE)?.value,
+ );
 
-  return (
-    <html lang="es" className={`${headingFont.variable} ${bodyFont.variable}`}>
-      <body>
-        <AppProviders hasSessionCandidate={hasSessionCandidate}>{children}</AppProviders>
-      </body>
-    </html>
-  );
+ return (
+ <html lang="es" className={`${headingFont.variable} ${bodyFont.variable}`}>
+ <body>
+ <AppProviders hasSessionCandidate={hasSessionCandidate}>{children}</AppProviders>
+ </body>
+ </html>
+ );
 }

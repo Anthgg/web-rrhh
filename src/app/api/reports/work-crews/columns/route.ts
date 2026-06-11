@@ -4,17 +4,17 @@ import { handleRouteError, jsonResponse } from "@/lib/api/server-utils";
 import { backendRoutes } from "@/lib/config/backend-routes";
 
 export async function GET() {
-  try {
-    const context = await getSessionContext();
+ try {
+ const context = await getSessionContext();
 
-    const response = await backendRequest({
-      pathCandidates: backendRoutes.reports.workCrewsColumns,
-      accessToken: context.accessToken,
-      refreshToken: context.refreshToken,
-    });
+ const response = await backendRequest({
+ pathCandidates: backendRoutes.reports.workCrewsColumns,
+ accessToken: context.accessToken,
+ refreshToken: context.refreshToken,
+ });
 
-    return jsonResponse(response.data);
-  } catch (error) {
-    return handleRouteError(error);
-  }
+ return jsonResponse(response.data);
+ } catch (error) {
+ return handleRouteError(error);
+ }
 }

@@ -18,79 +18,91 @@ import type { ChartConfig } from "@/types/report.types";
 import { isAdminRequestManager } from "@/lib/utils/requests";
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "No se pudo completar la operacion.";
+ return error instanceof Error ? error.message : "No se pudo completar la operacion.";
 }
 
 export function ReportsDashboardPage() {
-  const { user } = useSession();
-  const isManager = isAdminRequestManager(user?.role);
-  const { filters, setFilters, resetFilters } = useReportFilters();
-  const [chartConfig, setChartConfig] = useState<ChartConfig>({
-    groupBy: "worker",
-    metric: "total_requests",
-    limit: 10,
-  });
+ const { user } = useSession();
+ const isManager = isAdminRequestManager(user?.role);
+ const { filters, setFilters, resetFilters } = useReportFilters();
+ const [chartConfig, setChartConfig] = useState<ChartConfig>({
+ groupBy: "worker",
+ metric: "total_requests",
+ limit: 10,
+ });
 
-  const requestTypesQuery = useQuery({
-    queryKey: ["report-request-types"],
-    queryFn: requestsService.getTypes,
-    staleTime: 5 * 60_000,
-  });
-  const workersQuery = useQuery({
-    queryKey: ["report-workers"],
-    queryFn: () => workersService.list({ page: 1, pageSize: 100 }),
-    enabled: isManager,
-    staleTime: 5 * 60_000,
-  });
-  const summaryQuery = useQuery({
-    queryKey: ["report-summary", filters],
-    queryFn: () => reportsApi.getSummary(filters),
-    refetchOnWindowFocus: false,
-  });
-  const chartsQuery = useReportCharts(filters, chartConfig);
+ const { data: requestTypes } = useQuery({
+ queryKey: ["report-request-types"],
+ queryFn: requestsService.getTypes,
+ staleTime: 5 * 60_000,
+ });
+ const { data: workersResponse } = useQuery({
+ queryKey: ["report-workers"],
+ queryFn: () => workersService.list({ page: 1, pageSize: 100 }),
+ enabled: isManager,
+ staleTime: 5 * 60_000,
+ });
+ const {
+ data: summary,
+ error: summaryError,
+ isError: isSummaryError,
+ isLoading: isSummaryLoading,
+ refetch: refetchSummary,
+ } = useQuery({
+ queryKey: ["report-summary", filters],
+ queryFn: () => reportsApi.getSummary(filters),
+ refetchOnWindowFocus: false,
+ });
+ const {
+ data: chart,
+ error: chartError,
+ isError: isChartError,
+ isLoading: isChartLoading,
+ refetch: refetchChart,
+ } = useReportCharts(filters, chartConfig);
 
-  const workers = useMemo(() => workersQuery.data?.items ?? [], [workersQuery.data]);
+ const workers = useMemo(() => workersResponse?.items ?? [], [workersResponse]);
 
-  return (
-    <ReportsLayout
-      title="Dashboard de solicitudes"
-      description="Mide volumen, aprobaciones y tendencias antes de tomar decisiones operativas o descargar reportes."
-    >
-      <div className="grid gap-6">
-        <ReportFiltersPanel
-          filters={filters}
-          requestTypes={requestTypesQuery.data ?? []}
-          workers={workers}
-          showWorkerFilter={isManager}
-          onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
-          onReset={resetFilters}
-        />
+ return (
+ <ReportsLayout
+ title="Dashboard de solicitudes"
+ description="Mide volumen, aprobaciones y tendencias antes de tomar decisiones operativas o descargar reportes."
+ >
+ <div className="grid gap-6">
+ <ReportFiltersPanel
+ filters={filters}
+ requestTypes={requestTypes ?? []}
+ workers={workers}
+ showWorkerFilter={isManager}
+ onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
+ onReset={resetFilters}
+ />
 
-        {summaryQuery.isError ? (
-          <ErrorState
-            title="No se pudieron cargar las metricas"
-            description={getErrorMessage(summaryQuery.error)}
-            onRetry={() => void summaryQuery.refetch()}
-          />
-        ) : (
-          <ReportSummaryCards summary={summaryQuery.data?.data} isLoading={summaryQuery.isLoading} />
-        )}
+ {isSummaryError ? (
+ <ErrorState
+ title="No se pudieron cargar las metricas"
+ description={getErrorMessage(summaryError)}
+ onRetry={() => void refetchSummary()}
+ />
+ ) : (
+ <ReportSummaryCards summary={summary?.data} isLoading={isSummaryLoading} />
+ )}
 
-        {chartsQuery.isError ? (
-          <ErrorState
-            title="No se pudo cargar el grafico"
-            description={getErrorMessage(chartsQuery.error)}
-            onRetry={() => void chartsQuery.refetch()}
-          />
-        ) : (
-          <RequestChartsPanel
-            chart={chartsQuery.data?.data}
-            chartConfig={chartConfig}
-            isLoading={chartsQuery.isLoading}
-            onConfigChange={(patch) => setChartConfig((current) => ({ ...current, ...patch }))}
-          />
-        )}
-      </div>
-    </ReportsLayout>
-  );
+ {isChartError ? (
+ <ErrorState
+ title="No se pudo cargar el grafico"
+ description={getErrorMessage(chartError)}
+ onRetry={() => void refetchChart()}
+ />
+ ) : (
+ <RequestChartsPanel
+ chart={chart?.data}
+ chartConfig={chartConfig}
+ isLoading={isChartLoading}
+ onConfigChange={(patch) => setChartConfig((current) => ({ ...current, ...patch }))}
+ />
+ )}
+ </div>
+ </ReportsLayout>
+ );
 }

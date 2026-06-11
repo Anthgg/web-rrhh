@@ -6,39 +6,39 @@ import { backendRoutes } from "@/lib/config/backend-routes";
 import { getRequestQueryFilters, parseProxyBody } from "@/app/api/requests/request-route-utils";
 
 export async function GET(request: Request) {
-  try {
-    const url = new URL(request.url);
-    const filters = getRequestQueryFilters(url.searchParams);
+ try {
+ const url = new URL(request.url);
+ const filters = getRequestQueryFilters(url.searchParams);
 
-    const context = await getSessionContext();
-    const response = await backendRequest({
-      pathCandidates: backendRoutes.requests.list,
-      accessToken: context.accessToken,
-      refreshToken: context.refreshToken,
-      query: filters,
-    });
+ const context = await getSessionContext();
+ const response = await backendRequest({
+ pathCandidates: backendRoutes.requests.list,
+ accessToken: context.accessToken,
+ refreshToken: context.refreshToken,
+ query: filters,
+ });
 
-    return jsonResponse(normalizePaginated(response.data, normalizeRequestItem));
-  } catch (error) {
-    return handleRouteError(error);
-  }
+ return jsonResponse(normalizePaginated(response.data, normalizeRequestItem));
+ } catch (error) {
+ return handleRouteError(error);
+ }
 }
 
 export async function POST(request: Request) {
-  try {
-    const payload = await parseProxyBody(request);
-    const context = await getSessionContext();
+ try {
+ const payload = await parseProxyBody(request);
+ const context = await getSessionContext();
 
-    const response = await backendRequest({
-      pathCandidates: backendRoutes.requests.list,
-      method: "POST",
-      body: payload,
-      accessToken: context.accessToken,
-      refreshToken: context.refreshToken,
-    });
+ const response = await backendRequest({
+ pathCandidates: backendRoutes.requests.list,
+ method: "POST",
+ body: payload,
+ accessToken: context.accessToken,
+ refreshToken: context.refreshToken,
+ });
 
-    return jsonResponse(normalizeRequestDetail(response.data), 201);
-  } catch (error) {
-    return handleRouteError(error);
-  }
+ return jsonResponse(normalizeRequestDetail(response.data), 201);
+ } catch (error) {
+ return handleRouteError(error);
+ }
 }

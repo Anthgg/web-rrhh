@@ -1,14 +1,14 @@
 let clientAccessToken: string | null = null;
 
 export function setClientAccessToken(token?: string | null) {
-  const normalized = token?.trim();
-  clientAccessToken = normalized ? normalized : null;
+ const normalized = token?.trim();
+ clientAccessToken = normalized ? normalized : null;
 }
 
 export function getClientAccessToken() {
-  return clientAccessToken;
+ return clientAccessToken;
 }
 
 export function clearClientAccessToken() {
-  clientAccessToken = null;
+ clientAccessToken = null;
 }

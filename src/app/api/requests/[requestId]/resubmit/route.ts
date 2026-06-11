@@ -8,21 +8,21 @@ import { parseProxyBody } from "@/app/api/requests/request-route-utils";
 type ActionRouteContext = { params: Promise<{ requestId: string }> };
 
 export async function PATCH(request: Request, context: ActionRouteContext) {
-  try {
-    const payload = await parseProxyBody(request);
-    const { requestId } = await context.params;
-    const sessionContext = await getSessionContext();
+ try {
+ const payload = await parseProxyBody(request);
+ const { requestId } = await context.params;
+ const sessionContext = await getSessionContext();
 
-    const response = await backendRequest({
-      pathCandidates: backendRoutes.requests.resubmit(requestId),
-      method: "PATCH",
-      body: payload,
-      accessToken: sessionContext.accessToken,
-      refreshToken: sessionContext.refreshToken,
-    });
+ const response = await backendRequest({
+ pathCandidates: backendRoutes.requests.resubmit(requestId),
+ method: "PATCH",
+ body: payload,
+ accessToken: sessionContext.accessToken,
+ refreshToken: sessionContext.refreshToken,
+ });
 
-    return jsonResponse(normalizeRequestDetail(response.data));
-  } catch (error) {
-    return handleRouteError(error);
-  }
+ return jsonResponse(normalizeRequestDetail(response.data));
+ } catch (error) {
+ return handleRouteError(error);
+ }
 }

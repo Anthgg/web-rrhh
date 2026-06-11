@@ -14,52 +14,52 @@ import { WorkCrewsWorkspace } from "@/features/work-crews/work-crews-workspace";
 type OrgTab = "departments" | "areas" | "roles" | "positions" | "work-locations" | "work-crews";
 
 const ORG_TABS = [
-  { id: "departments", label: "Departamentos", icon: Building2 },
-  { id: "areas", label: "Áreas", icon: Network },
-  { id: "positions", label: "Puestos", icon: UsersRound },
-  { id: "roles", label: "Roles de Sistema", icon: ShieldCheck },
-  { id: "work-locations", label: "Lugares de Trabajo", icon: MapPin },
-  { id: "work-crews", label: "Cuadrillas", icon: UsersRound },
+ { id: "departments", label: "Departamentos", icon: Building2 },
+ { id: "areas", label: "Áreas", icon: Network },
+ { id: "positions", label: "Puestos", icon: UsersRound },
+ { id: "roles", label: "Roles de Sistema", icon: ShieldCheck },
+ { id: "work-locations", label: "Lugares de Trabajo", icon: MapPin },
+ { id: "work-crews", label: "Cuadrillas", icon: UsersRound },
 ];
 
 export function OrganizationWorkspace() {
-  const [activeTab, setActiveTab] = useState<OrgTab>("departments");
+ const [activeTab, setActiveTab] = useState<OrgTab>("departments");
 
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Configuración"
-        title="Estructura Organizacional"
-        description="Gestiona los departamentos internos, áreas funcionales y roles de tu empresa en un solo lugar."
-      />
+ return (
+ <div className="flex flex-col gap-6">
+ <PageHeader
+ eyebrow="Configuración"
+ title="Estructura Organizacional"
+ description="Gestiona los departamentos internos, áreas funcionales y roles de tu empresa en un solo lugar."
+ />
 
-      <Card className="flex items-center gap-2 overflow-x-auto p-1 text-sm font-medium">
-        {ORG_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button type="button"
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as OrgTab)}
-              className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 transition-colors ${
-                isActive ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-            >
-              <Icon className="size-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </Card>
+ <Card className="flex items-center gap-2 overflow-x-auto p-1 text-sm font-medium">
+ {ORG_TABS.map((tab) => {
+ const Icon = tab.icon;
+ const isActive = activeTab === tab.id;
+ return (
+ <button type="button"
+ key={tab.id}
+ onClick={() => setActiveTab(tab.id as OrgTab)}
+ className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 transition-colors ${
+ isActive ? "bg-indigo-50 text-indigo-700" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+ }`}
+ >
+ <Icon className="size-4" />
+ {tab.label}
+ </button>
+ );
+ })}
+ </Card>
 
-      <div className="min-h-[500px]">
-        {activeTab === "departments" && <DepartmentsWorkspace hideHeader />}
-        {activeTab === "areas" && <AreasWorkspace hideHeader />}
-        {activeTab === "positions" && <PositionsTab />}
-        {activeTab === "roles" && <RolesWorkspace hideHeader />}
-        {activeTab === "work-locations" && <WorkLocationsTab />}
-        {activeTab === "work-crews" && <WorkCrewsWorkspace hideHeader />}
-      </div>
-    </div>
-  );
+ <div className="min-h-[500px]">
+ {activeTab === "departments" && <DepartmentsWorkspace hideHeader />}
+ {activeTab === "areas" && <AreasWorkspace hideHeader />}
+ {activeTab === "positions" && <PositionsTab />}
+ {activeTab === "roles" && <RolesWorkspace hideHeader />}
+ {activeTab === "work-locations" && <WorkLocationsTab />}
+ {activeTab === "work-crews" && <WorkCrewsWorkspace hideHeader />}
+ </div>
+ </div>
+ );
 }

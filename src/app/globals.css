@@ -3,46 +3,175 @@
 @theme {
   --font-sans: var(--font-body);
   --font-display: var(--font-heading);
-  --color-canvas: #f8fafc;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f1f5f9;
-  --color-ink: #0f172a;
-  --color-ink-soft: #64748b;
-  --color-brand: #0f766e;
-  --color-brand-strong: #115e59;
-  --color-brand-soft: #dff4ef;
-  --color-accent: #b45309;
-  --color-border: #e2e8f0;
+  /* New Semantic Colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-active: var(--sidebar-active);
+
+  --color-header: var(--header);
+  --color-header-foreground: var(--header-foreground);
+
   --radius-4xl: 2rem;
   --shadow-shell: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03);
   --shadow-shell-lg: 0 4px 24px rgba(15, 23, 42, 0.06), 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
-:root {
-  color-scheme: light;
-}
+@custom-variant dark (&:where(.dark, .dark *));
 
-* {
-  box-sizing: border-box;
-}
+@layer base {
+  :root {
+    color-scheme: light;
+    --background: #f8fafc;
+    --foreground: #0f172a;
 
-html,
-body {
-  min-height: 100%;
-}
+    --card: #ffffff;
+    --card-foreground: #0f172a;
 
-body {
-  margin: 0;
-  background: var(--color-canvas);
-  color: var(--color-ink);
-  font-family: var(--font-body), system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+    --card-soft: #f8fafc;
+    --card-soft-foreground: #334155;
 
-a {
-  color: inherit;
-  text-decoration: none;
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
+
+    --primary: #0f766e; /* green FABRYOR */
+    --primary-foreground: #ffffff;
+
+    --secondary: #f1f5f9;
+    --secondary-foreground: #0f172a;
+
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+
+    --subtle: #e2e8f0;
+    --subtle-foreground: #475569;
+
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+    --ring: var(--primary);
+
+    --destructive: #ef4444; /* red-500 */
+    --destructive-foreground: #f8fafc;
+
+    --sidebar: #ffffff;
+    --sidebar-foreground: #0f172a;
+    --sidebar-active: rgba(15, 118, 110, 0.1);
+
+    --header: #ffffff;
+    --header-foreground: #0f172a;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --background: #0f172a;
+    --foreground: #f8fafc;
+
+    --card: #111827;
+    --card-foreground: #F8FAFC;
+
+    --card-soft: #1E293B;
+    --card-soft-foreground: #E2E8F0;
+
+    --popover: #111827;
+    --popover-foreground: #F8FAFC;
+
+    --primary: #0d9488;
+    --primary-foreground: #ffffff;
+
+    --secondary: #1E293B;
+    --secondary-foreground: #E2E8F0;
+
+    --muted: #1E293B;
+    --muted-foreground: #CBD5E1;
+
+    --subtle: #334155;
+    --subtle-foreground: #94A3B8;
+
+    --border: #334155;
+    --input: #1E293B;
+    --ring: var(--primary);
+
+    --destructive: #7f1d1d; /* red-900 */
+    --destructive-foreground: #f8fafc;
+
+    --sidebar: #111827;
+    --sidebar-foreground: #E2E8F0;
+    --sidebar-active: rgba(13, 148, 136, 0.16);
+
+    --header: #111827;
+    --header-foreground: #F8FAFC;
+  }
+
+  /* Accents */
+  [data-accent="blue"] {
+    --primary: #4f46e5;
+    --ring: #4f46e5;
+  }
+  .dark[data-accent="blue"] {
+    --primary: #6366f1;
+    --ring: #6366f1;
+  }
+
+  [data-accent="purple"] {
+    --primary: #9333ea;
+    --ring: #9333ea;
+  }
+  .dark[data-accent="purple"] {
+    --primary: #a855f7;
+    --ring: #a855f7;
+  }
+
+  [data-accent="gray"] {
+    --primary: #475569;
+    --ring: #475569;
+  }
+  .dark[data-accent="gray"] {
+    --primary: #94a3b8;
+    --primary-foreground: #0f172a;
+    --ring: #94a3b8;
+  }
+
+  * {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
+
+  html, body {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-body), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 button,
@@ -60,9 +189,37 @@ textarea {
 }
 
 /* ─── Grid system ─── */
+/*
+ * .page-grid wraps every protected page's children.
+ * It owns the horizontal padding so the <main> shell can stay padding-free.
+ * This lets full-bleed pages (e.g. /perfil) use .page-grid--fluid to
+ * remove the horizontal gutter without touching other pages.
+ */
 .page-grid {
   display: grid;
   gap: 1.25rem;
+  padding-left: 1rem;   /* px-4 */
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .page-grid {
+    padding-left: 1.5rem;  /* sm:px-6 */
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-grid {
+    padding-left: 2rem;   /* lg:px-8 */
+    padding-right: 2rem;
+  }
+}
+
+/* Full-bleed variant: pages that manage their own horizontal padding */
+.page-grid--fluid {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* ─── Typography ─── */

@@ -1,90 +1,78 @@
-import { Users, Shield, HardHat, UserMinus } from "lucide-react";
+import { useMemo } from "react";
+import { Users, Shield, HardHat, UserCog, UserMinus } from "lucide-react";
 import { UserProfile } from "@/types";
+import { UserMetricCard } from "./UserMetricCard";
+import { buildRoleStats, sortRoleStats } from "@/lib/ui/role-stats";
+import { buildRoleColorMap, getDynamicRoleBadgeClass, SYSTEM_ROLE_STYLES } from "@/lib/ui/role-badges";
 
 interface UsersStatsProps {
-  users: UserProfile[];
-  total: number;
+ users: UserProfile[];
+ total: number;
+}
+
+function getRoleIcon(roleKey: string) {
+ switch (roleKey) {
+ case "admin":
+ return <Shield className="size-4" />;
+ case "supervisor":
+ return <HardHat className="size-4" />;
+ case "hr":
+ return <UserCog className="size-4" />;
+ case "worker":
+ return <Users className="size-4" />;
+ default:
+ return <UserCog className="size-4" />;
+ }
 }
 
 export function UsersStats({ users, total }: UsersStatsProps) {
-  // If the backend paginates heavily, we only have the current page's users to calculate stats from,
-  // unless we get a global summary from the backend.
-  // For now we'll calculate based on the current items (or we can assume `total` for total, and estimate others).
-  
-  const activeCount = users.filter((u) => u.status === "active").length;
-  const adminCount = users.filter((u) => u.role === "admin").length;
-  const supervisorCount = users.filter((u) => u.role === "supervisor").length;
-  const workerCount = users.filter((u) => u.role === "worker").length;
-  const unassignedProjectCount = users.filter(
-    (u) => !(u.worker?.work_location_name || u.supervisedCrew?.work_location_name || u.project),
-  ).length;
+ const roleColorMap = useMemo(() => buildRoleColorMap(users), [users]);
+ const roleStats = useMemo(() => sortRoleStats(buildRoleStats(users)), [users]);
 
-  return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-5">
-      <div className="flex flex-col gap-2 rounded-2xl border border-border bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-ink-soft">
-          <div className="rounded-lg bg-brand/10 p-1.5 text-brand">
-            <Users className="size-4" />
-          </div>
-          <span className="text-xs font-semibold uppercase tracking-wider">Total</span>
-        </div>
-        <div>
-          <div className="text-2xl font-bold text-ink">{total}</div>
-          <div className="text-xs text-ink-soft">Usuarios registrados</div>
-        </div>
-      </div>
+ const unassignedProjectCount = useMemo(() => {
+ return users.filter(
+ (u) => !(u.worker?.work_location_name || u.supervisedCrew?.work_location_name),
+ ).length;
+ }, [users]);
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-border bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-ink-soft">
-          <div className="rounded-lg bg-emerald-100 p-1.5 text-emerald-600">
-            <Shield className="size-4" />
-          </div>
-          <span className="text-xs font-semibold uppercase tracking-wider">Administradores</span>
-        </div>
-        <div>
-          <div className="text-2xl font-bold text-ink">{adminCount}</div>
-          <div className="text-xs text-ink-soft">Usuarios admin en esta pág.</div>
-        </div>
-      </div>
+ return (
+ <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+ {/* Total Card */}
+ <UserMetricCard
+ title="Total"
+ value={total}
+ subtitle="Usuarios registrados"
+ icon={<Users className="size-4" />}
+ className="bg-primary/10 text-primary"
+ />
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-border bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-ink-soft">
-          <div className="rounded-lg bg-amber-100 p-1.5 text-amber-600">
-            <HardHat className="size-4" />
-          </div>
-          <span className="text-xs font-semibold uppercase tracking-wider">Supervisores</span>
-        </div>
-        <div>
-          <div className="text-2xl font-bold text-ink">{supervisorCount}</div>
-          <div className="text-xs text-ink-soft">Usuarios con cuadrilla</div>
-        </div>
-      </div>
+ {/* Dynamic Role Cards */}
+ {roleStats.map((stat) => {
+ const colorClass =
+ SYSTEM_ROLE_STYLES[stat.key]?.className ??
+ roleColorMap.get(stat.key) ??
+ getDynamicRoleBadgeClass(stat.key);
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-border bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-ink-soft">
-          <div className="rounded-lg bg-blue-100 p-1.5 text-blue-600">
-            <Users className="size-4" />
-          </div>
-          <span className="text-xs font-semibold uppercase tracking-wider">Trabajadores</span>
-        </div>
-        <div>
-          <div className="text-2xl font-bold text-ink">{workerCount}</div>
-          <div className="text-xs text-ink-soft">Con cuenta de app</div>
-        </div>
-      </div>
+ return (
+ <UserMetricCard
+ key={stat.key}
+ title={stat.label}
+ value={stat.count}
+ subtitle="Usuarios con este rol"
+ icon={getRoleIcon(stat.key)}
+ className={colorClass}
+ />
+ );
+ })}
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-border bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-ink-soft">
-          <div className="rounded-lg bg-slate-100 p-1.5 text-slate-500">
-            <UserMinus className="size-4" />
-          </div>
-          <span className="text-xs font-semibold uppercase tracking-wider">Sin Proyecto</span>
-        </div>
-        <div>
-          <div className="text-2xl font-bold text-ink">{unassignedProjectCount}</div>
-          <div className="text-xs text-ink-soft">Requieren asignación</div>
-        </div>
-      </div>
-    </div>
-  );
+ {/* Sin Proyecto Card */}
+ <UserMetricCard
+ title="Sin Proyecto"
+ value={unassignedProjectCount}
+ subtitle="Requieren asignación"
+ icon={<UserMinus className="size-4" />}
+ className="bg-muted text-muted-foreground"
+ />
+ </div>
+ );
 }

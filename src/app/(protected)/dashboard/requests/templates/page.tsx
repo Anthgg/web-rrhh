@@ -1,5 +1,11 @@
+import { Suspense } from "react";
+
 import { RequestsWorkspace } from "@/features/requests/requests-workspace";
 
 export default function RequestTemplatesPage() {
-  return <RequestsWorkspace section="templates" />;
+ return (
+ <Suspense fallback={null}>
+ <RequestsWorkspace section="templates" />
+ </Suspense>
+ );
 }

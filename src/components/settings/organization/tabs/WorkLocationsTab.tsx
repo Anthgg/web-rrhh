@@ -8,5 +8,5 @@ import { WorkLocationsWorkspace } from "@/features/work-locations/work-locations
  * so that create / edit / delete / toggle use the same form with map + autocomplete.
  */
 export function WorkLocationsTab() {
-  return <WorkLocationsWorkspace hideHeader />;
+ return <WorkLocationsWorkspace hideHeader />;
 }

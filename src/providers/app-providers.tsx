@@ -6,49 +6,52 @@ import { Toaster } from "sonner";
 
 import { AuthProvider } from "@/features/auth/auth-provider";
 import { ApiClientError } from "@/lib/api/client";
+import { PreferencesProvider } from "./preferences-provider";
 
 interface AppProvidersProps {
-  children: React.ReactNode;
-  hasSessionCandidate: boolean;
+ children: React.ReactNode;
+ hasSessionCandidate: boolean;
 }
 
 export function AppProviders({ children, hasSessionCandidate }: AppProvidersProps) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 30_000,
-            refetchOnWindowFocus: false,
-            retry(failureCount, error) {
-              if (error instanceof ApiClientError && error.status === 401) {
-                return false;
-              }
+ const [queryClient] = useState(
+ () =>
+ new QueryClient({
+ defaultOptions: {
+ queries: {
+ staleTime: 30_000,
+ refetchOnWindowFocus: false,
+ retry(failureCount, error) {
+ if (error instanceof ApiClientError && error.status === 401) {
+ return false;
+ }
 
-              return failureCount < 1;
-            },
-          },
-          mutations: {
-            retry: false,
-          },
-        },
-      }),
-  );
+ return failureCount < 1;
+ },
+ },
+ mutations: {
+ retry: false,
+ },
+ },
+ }),
+ );
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider hasSessionCandidate={hasSessionCandidate}>
-        {children}
-        <Toaster
-          position="top-right"
-          richColors
-          toastOptions={{
-            style: {
-              borderRadius: "16px",
-            },
-          }}
-        />
-      </AuthProvider>
-    </QueryClientProvider>
-  );
+ return (
+ <QueryClientProvider client={queryClient}>
+ <AuthProvider hasSessionCandidate={hasSessionCandidate}>
+ <PreferencesProvider>
+ {children}
+ <Toaster
+ position="top-right"
+ richColors
+ toastOptions={{
+ style: {
+ borderRadius: "16px",
+ },
+ }}
+ />
+ </PreferencesProvider>
+ </AuthProvider>
+ </QueryClientProvider>
+ );
 }

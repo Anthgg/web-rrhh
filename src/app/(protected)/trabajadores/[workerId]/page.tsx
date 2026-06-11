@@ -1,11 +1,11 @@
 import { WorkerProfilePage } from "@/features/workers/worker-profile-page";
 
 export default async function Page({
-  params,
+ params,
 }: {
-  params: Promise<{ workerId: string }>;
+ params: Promise<{ workerId: string }>;
 }) {
-  const { workerId } = await params;
+ const { workerId } = await params;
 
-  return <WorkerProfilePage workerId={workerId} />;
+ return <WorkerProfilePage workerId={workerId} />;
 }

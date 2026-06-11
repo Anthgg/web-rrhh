@@ -1,237 +1,305 @@
 "use client";
 
-import { useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, X, UsersRound } from "lucide-react";
+import { Loader2, UsersRound, X } from "lucide-react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { FieldFrame, Input, Select } from "@/components/ui/fields";
-
-import { workCrewsService } from "@/services/work-crews.service";
-import type { WorkCrew, WorkCrewPayload, WorkCrewUpdatePayload } from "@/services/work-crews.service";
+import {
+ workCrewsService,
+ type WorkCrew,
+ type WorkCrewPayload,
+} from "@/services/work-crews.service";
 import { workersService } from "@/services/workers.service";
-import { organizationService, OrganizationWorkLocation } from "@/services/organization.service";
+import { organizationService, type OrganizationWorkLocation } from "@/services/organization.service";
 import { extractArray } from "@/lib/utils/extract-array";
+import { getSafeWorkerId, isUuid } from "@/lib/api/worker-ids";
+import type { WorkerRecord } from "@/types";
+import {
+ extractApiWarnings,
+ handleWorkCrewSupervisorError,
+ handleWorkCrewWarnings,
+} from "@/features/work-crews/work-crew-supervisor-rules";
 
 interface WorkCrewFormModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  crewData: WorkCrew | null;
+ isOpen: boolean;
+ onClose: () => void;
+ crewData: WorkCrew | null;
 }
 
 type FormData = {
-  name: string;
-  description: string;
-  supervisor_id: string;
-  work_location_id: string;
+ name: string;
+ description: string;
+ supervisorId: string;
+ workLocationId: string;
 };
 
+type SupervisorOption = {
+ id: string;
+ name: string;
+};
+
+function getSupervisorName(supervisor: WorkerRecord) {
+ const record = supervisor as WorkerRecord & {
+ first_name?: string | null;
+ last_name?: string | null;
+ name?: string | null;
+ };
+
+ return (
+ supervisor.fullName ||
+ record.name ||
+ [record.first_name, record.last_name].filter(Boolean).join(" ") ||
+ "Supervisor sin nombre"
+ );
+}
+
+function getSupervisorOptions(supervisors: WorkerRecord[]) {
+ return supervisors.flatMap<SupervisorOption>((supervisor) => {
+ const id = getSafeWorkerId(supervisor);
+ return id ? [{ id, name: getSupervisorName(supervisor) }] : [];
+ });
+}
+
 export function WorkCrewFormModal({
-  isOpen,
-  onClose,
-  crewData,
+ isOpen,
+ onClose,
+ crewData,
 }: WorkCrewFormModalProps) {
-  const queryClient = useQueryClient();
-  const isEditing = !!crewData;
+ if (!isOpen) return null;
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors, isDirty },
-  } = useForm<FormData>({
-    defaultValues: {
-      name: "",
-      description: "",
-      supervisor_id: "",
-      work_location_id: "",
-    },
-  });
+ return <WorkCrewFormModalContent crewData={crewData} onClose={onClose} />;
+}
 
-  useEffect(() => {
-    if (isOpen) {
-      if (crewData) {
-        reset({
-          name: crewData.name,
-          description: crewData.description || "",
-          supervisor_id: crewData.supervisor_id,
-          work_location_id: crewData.work_location_id,
-        });
-      } else {
-        reset({
-          name: "",
-          description: "",
-          supervisor_id: "",
-          work_location_id: "",
-        });
-      }
-    }
-  }, [isOpen, crewData, reset]);
+function WorkCrewFormModalContent({
+ onClose,
+ crewData,
+}: Omit<WorkCrewFormModalProps, "isOpen">) {
+ const queryClient = useQueryClient();
+ const isEditing = !!crewData;
 
-  const supervisorsQuery = useQuery({
-    queryKey: ["supervisors"],
-    queryFn: async () => {
-      const data = await workersService.getSupervisors();
-      return extractArray(data);
-    },
-    enabled: isOpen,
-  });
+ const {
+ control,
+ handleSubmit,
+ setError,
+ formState: { errors, isDirty },
+ } = useForm<FormData>({
+ defaultValues: {
+ name: crewData?.name ?? "",
+ description: crewData?.description ?? "",
+ supervisorId: crewData?.supervisor_id ?? "",
+ workLocationId: crewData?.work_location_id ?? "",
+ },
+ });
 
-  const locationsQuery = useQuery({
-    queryKey: ["work-locations"],
-    queryFn: async () => {
-      const data = await organizationService.getWorkLocations();
-      return extractArray<OrganizationWorkLocation>(data);
-    },
-    enabled: isOpen,
-  });
+ const {
+ data: supervisorsData = [],
+ isLoading: isLoadingSupervisors,
+ } = useQuery({
+ queryKey: ["supervisors"],
+ queryFn: async () => {
+ const data = await workersService.getSupervisors();
+ return extractArray<WorkerRecord>(data);
+ },
+ });
 
-  const mutation = useMutation({
-    mutationFn: (data: FormData) => {
-      if (isEditing && crewData) {
-        return workCrewsService.updateWorkCrew(crewData.id, data as WorkCrewUpdatePayload);
-      }
-      return workCrewsService.createWorkCrew({ ...data, is_active: true } as WorkCrewPayload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["work-crews"] });
-      onClose();
-    },
-  });
+ const {
+ data: locationsData = [],
+ isLoading: isLoadingLocations,
+ } = useQuery({
+ queryKey: ["work-locations"],
+ queryFn: async () => {
+ const data = await organizationService.getWorkLocations();
+ return extractArray<OrganizationWorkLocation>(data);
+ },
+ });
 
-  const onSubmit = (data: FormData) => {
-    mutation.mutate(data);
-  };
+ const mutation = useMutation({
+ mutationFn: (payload: WorkCrewPayload) => {
+ if (isEditing && crewData) {
+ return workCrewsService.updateWorkCrew(crewData.id, payload);
+ }
 
-  const supervisors = supervisorsQuery.data || [];
-  const locations = locationsQuery.data || [];
+ return workCrewsService.createWorkCrew({ ...payload, is_active: true });
+ },
+ onSuccess: (response) => {
+ handleWorkCrewWarnings(extractApiWarnings(response));
+ toast.success(isEditing ? "Cuadrilla actualizada correctamente." : "Cuadrilla creada correctamente.");
+ queryClient.invalidateQueries({ queryKey: ["work-crews"] });
+ onClose();
+ },
+ onError: (error) => {
+ handleWorkCrewSupervisorError(error, setError);
+ },
+ });
 
-  if (!isOpen) return null;
+ const onSubmit = (data: FormData) => {
+ if (data.supervisorId && !isUuid(data.supervisorId)) {
+ setError("supervisorId", {
+ type: "manual",
+ message: "Selecciona un supervisor valido.",
+ });
+ return;
+ }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-      <div className="flex w-full max-w-[600px] flex-col rounded-2xl bg-slate-50 shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between bg-white border-b border-slate-200 px-6 py-5 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-              <UsersRound className="size-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                {isEditing ? "Editar Cuadrilla" : "Nueva Cuadrilla"}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {isEditing
-                  ? "Modifica los detalles de la cuadrilla."
-                  : "Registra un nuevo grupo de trabajo."}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
+ mutation.mutate({
+ name: data.name,
+ description: data.description,
+ supervisorId: data.supervisorId || null,
+ workLocationId: data.workLocationId,
+ });
+ };
 
-        {/* Body */}
-        <div className="overflow-y-auto p-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            
-            {/* General Info */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 mb-4">Datos Generales</h3>
-              
-              <Controller
-                name="name"
-                control={control}
-                rules={{ required: "El nombre es requerido" }}
-                render={({ field }) => (
-                  <FieldFrame label="Nombre de la cuadrilla *" error={errors.name?.message}>
-                    <Input {...field} disabled={mutation.isPending} placeholder="Ej. Cuadrilla Norte" />
-                  </FieldFrame>
-                )}
-              />
+ const supervisorOptions = getSupervisorOptions(supervisorsData);
+ const locations = locationsData;
+ const showCurrentSupervisorFallback =
+ crewData?.supervisor_id &&
+ !supervisorOptions.some((supervisor) => supervisor.id === crewData.supervisor_id);
 
-              <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                  <FieldFrame label="Descripción" hint="Opcional">
-                    <Input {...field} disabled={mutation.isPending} placeholder="Ej. Equipo encargado del sector norte" />
-                  </FieldFrame>
-                )}
-              />
-            </div>
+ return (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 p-4 backdrop-blur-sm">
+ <div className="flex w-full max-w-[600px] flex-col overflow-hidden rounded-2xl bg-muted shadow-2xl">
+ <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-6 py-5">
+ <div className="flex items-center gap-3">
+ <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+ <UsersRound className="size-5" />
+ </div>
+ <div>
+ <h2 className="text-lg font-bold text-foreground">
+ {isEditing ? "Editar cuadrilla" : "Nueva cuadrilla"}
+ </h2>
+ <p className="text-xs text-muted-foreground">
+ {isEditing
+ ? "Modifica los detalles de la cuadrilla."
+ : "Registra un nuevo grupo de trabajo."}
+ </p>
+ </div>
+ </div>
+ <button
+ type="button"
+ onClick={onClose}
+ className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-muted-foreground"
+ >
+ <X className="size-5" />
+ </button>
+ </div>
 
-            {/* Assignments */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 mb-4">Asignaciones</h3>
-              
-              <Controller
-                name="supervisor_id"
-                control={control}
-                rules={{ required: "Debe seleccionar un supervisor" }}
-                render={({ field }) => (
-                  <FieldFrame label="Supervisor *" error={errors.supervisor_id?.message}>
-                    <Select {...field} disabled={mutation.isPending || supervisorsQuery.isLoading || supervisors.length === 0}>
-                      <option value="" disabled>
-                        {supervisorsQuery.isLoading ? "Cargando supervisores..." : "Seleccionar supervisor"}
-                      </option>
-                      {supervisors.map((sup: any) => (
-                        <option key={sup.id} value={sup.id}>
-                          {sup.first_name} {sup.last_name}
-                        </option>
-                      ))}
-                    </Select>
-                    {supervisors.length === 0 && !supervisorsQuery.isLoading && (
-                      <p className="text-xs text-amber-600 mt-1">No hay supervisores disponibles. Registra o activa un supervisor primero.</p>
-                    )}
-                  </FieldFrame>
-                )}
-              />
+ <div className="overflow-y-auto p-6">
+ <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+ <div className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm">
+ <h3 className="mb-4 border-b border-border pb-2 text-sm font-bold text-foreground">
+ Datos generales
+ </h3>
 
-              <Controller
-                name="work_location_id"
-                control={control}
-                rules={{ required: "Debe seleccionar una obra" }}
-                render={({ field }) => (
-                  <FieldFrame label="Obra Principal *" error={errors.work_location_id?.message}>
-                    <Select {...field} disabled={mutation.isPending || locationsQuery.isLoading || locations.length === 0}>
-                      <option value="" disabled>
-                        {locationsQuery.isLoading ? "Cargando obras..." : "Seleccionar obra"}
-                      </option>
-                      {locations.map((loc: OrganizationWorkLocation) => (
-                        <option key={loc.id} value={loc.id}>
-                          {loc.name}
-                        </option>
-                      ))}
-                    </Select>
-                    {locations.length === 0 && !locationsQuery.isLoading && (
-                      <p className="text-xs text-amber-600 mt-1">No hay obras activas disponibles. Crea una obra antes de asignarla.</p>
-                    )}
-                  </FieldFrame>
-                )}
-              />
-            </div>
+ <Controller
+ name="name"
+ control={control}
+ rules={{ required: "El nombre es requerido" }}
+ render={({ field }) => (
+ <FieldFrame label="Nombre de la cuadrilla *" error={errors.name?.message}>
+ <Input {...field} disabled={mutation.isPending} placeholder="Ej. Cuadrilla Norte" />
+ </FieldFrame>
+ )}
+ />
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="secondary" onClick={onClose} className="border-slate-200 text-slate-600">
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={mutation.isPending || (!isDirty && isEditing)} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                {mutation.isPending && (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                )}
-                {isEditing ? "Guardar Cambios" : "Crear Cuadrilla"}
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
+ <Controller
+ name="description"
+ control={control}
+ render={({ field }) => (
+ <FieldFrame label="Descripcion" hint="Opcional">
+ <Input {...field} disabled={mutation.isPending} placeholder="Ej. Equipo encargado del sector norte" />
+ </FieldFrame>
+ )}
+ />
+ </div>
+
+ <div className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm">
+ <h3 className="mb-4 border-b border-border pb-2 text-sm font-bold text-foreground">
+ Asignaciones
+ </h3>
+
+ <Controller
+ name="supervisorId"
+ control={control}
+ rules={{ required: "Debe seleccionar un supervisor" }}
+ render={({ field }) => (
+ <FieldFrame label="Supervisor *" error={errors.supervisorId?.message}>
+ <Select {...field} disabled={mutation.isPending || isLoadingSupervisors}>
+ <option value="" disabled>
+ {isLoadingSupervisors ? "Cargando supervisores..." : "Seleccionar supervisor"}
+ </option>
+ {showCurrentSupervisorFallback ? (
+ <option value={crewData.supervisor_id ?? ""}>
+ {crewData.supervisor_name || "Supervisor actual"}
+ </option>
+ ) : null}
+ {supervisorOptions.map((supervisor) => (
+ <option key={supervisor.id} value={supervisor.id}>
+ {supervisor.name}
+ </option>
+ ))}
+ </Select>
+ {supervisorOptions.length === 0 && !isLoadingSupervisors && !crewData?.supervisor_id ? (
+ <p className="mt-1 text-xs text-amber-600">
+ No hay supervisores disponibles. Registra o activa un supervisor primero.
+ </p>
+ ) : null}
+ </FieldFrame>
+ )}
+ />
+
+ <Controller
+ name="workLocationId"
+ control={control}
+ rules={{ required: "Debe seleccionar una obra" }}
+ render={({ field }) => (
+ <FieldFrame label="Obra principal *" error={errors.workLocationId?.message}>
+ <Select
+ {...field}
+ disabled={mutation.isPending || isLoadingLocations || locations.length === 0}
+ >
+ <option value="" disabled>
+ {isLoadingLocations ? "Cargando obras..." : "Seleccionar obra"}
+ </option>
+ {locations.map((location) => (
+ <option key={location.id} value={location.id}>
+ {location.name}
+ </option>
+ ))}
+ </Select>
+ {locations.length === 0 && !isLoadingLocations ? (
+ <p className="mt-1 text-xs text-amber-600">
+ No hay obras activas disponibles. Crea una obra antes de asignarla.
+ </p>
+ ) : null}
+ </FieldFrame>
+ )}
+ />
+ </div>
+
+ <div className="flex justify-end gap-3 pt-4">
+ <Button
+ type="button"
+ variant="secondary"
+ onClick={onClose}
+ className="border-border text-muted-foreground"
+ >
+ Cancelar
+ </Button>
+ <Button
+ type="submit"
+ disabled={mutation.isPending || (!isDirty && isEditing)}
+ className="bg-indigo-600 text-white hover:bg-indigo-700"
+ >
+ {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+ {isEditing ? "Guardar cambios" : "Crear cuadrilla"}
+ </Button>
+ </div>
+ </form>
+ </div>
+ </div>
+ </div>
+ );
 }
