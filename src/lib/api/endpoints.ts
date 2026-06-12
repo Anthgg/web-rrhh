@@ -59,9 +59,11 @@ export const adminApiEndpoints = {
  list: ["/api/roles"],
  },
  profile: {
- current: ["/api/users/me", "/api/profile/current", "/profile", "/api/profile"],
+ current: ["/api/profile/current", "/profile", "/api/profile", "/api/users/me"],
  update: ["/api/profile/current", "/profile", "/api/profile"],
  changePassword: ["/api/profile/password", "/profile/change-password"],
+ sessions: ["/api/profile/sessions", "/profile/sessions"],
+ sessionsOther: ["/api/profile/sessions/other", "/profile/sessions/other"],
  },
  reports: {
  attendance: ["/api/reports/attendance"],
@@ -140,6 +142,10 @@ export const webApiEndpoints = {
  password: "/api/profile/password",
  photo: "/api/profile/photo",
  preferences: "/api/users/me/preferences",
+ sessions: "/api/profile/sessions",
+ sessionsOther: "/api/profile/sessions/other",
+ revokeSession: (id: string) => `/api/profile/sessions/${id}`,
+ trustSession: (id: string) => `/api/profile/sessions/${id}/trust`,
  },
  reports: "/api/reports",
  corporateReports: {
