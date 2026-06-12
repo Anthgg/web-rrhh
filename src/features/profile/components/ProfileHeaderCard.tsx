@@ -32,7 +32,6 @@ export function ProfileHeaderCard({ user, onEditProfile, onUploadPhoto, isUpload
  fileInputRef.current.value = "";
  }
  };
- const avatarUrl = user.avatarUrl;
  const fullName = user.fullName || "Usuario";
  const email = user.email || "No registrado";
  const role = user.role || "unknown";
@@ -72,27 +71,29 @@ export function ProfileHeaderCard({ user, onEditProfile, onUploadPhoto, isUpload
  {/* Avatar */}
  <div className="relative group shrink-0">
  <UserAvatar
- src={user.avatarUrl}
- fullName={user.fullName}
- email={user.email}
- size="hero"
- rounded="2xl"
- showStatusDot
- status={user.status}
- className="border-2 border-primary-foreground/25 shadow-xl ring-4 ring-primary-foreground/10"
- />
+  src={user.profilePhotoUrl || user.avatarUrl}
+  fullName={user.fullName || user.email}
+  email={user.email}
+  size="hero"
+  rounded="2xl"
+  showStatusDot
+  status={user.status}
+  className="border-2 border-primary-foreground/25 shadow-xl ring-4 ring-primary-foreground/10"
+  />
  {isUploading && (
  <div className="absolute inset-0 rounded-2xl bg-black/60 flex items-center justify-center z-10">
  <div className="size-6 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
  </div>
  )}
  {!isUploading && onUploadPhoto && (
- <div
+ <button
+ type="button"
+ aria-label="Subir foto de perfil"
  onClick={handleTriggerUpload}
  className="absolute inset-0 rounded-2xl bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
  >
  <Camera className="size-5 text-white" />
- </div>
+ </button>
  )}
  </div>
 
@@ -158,6 +159,7 @@ export function ProfileHeaderCard({ user, onEditProfile, onUploadPhoto, isUpload
  ref={fileInputRef}
  type="file"
  accept="image/*"
+ aria-label="Seleccionar foto de perfil"
  onChange={handleFileChange}
  className="hidden"
  />

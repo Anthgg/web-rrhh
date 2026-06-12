@@ -8,6 +8,7 @@ export type UserAvatarSize = "xs" | "sm" | "md" | "lg" | "xl" | "hero";
 export interface UserAvatarProps {
  src?: string | null;
  fullName?: string | null;
+ name?: string | null;
  email?: string | null;
  size?: UserAvatarSize;
  className?: string;
@@ -40,6 +41,7 @@ export function getUserInitials(fullName?: string | null, email?: string | null)
 export function UserAvatar({
  src,
  fullName,
+ name,
  email,
  size = "md",
  className,
@@ -48,15 +50,30 @@ export function UserAvatar({
  status = null,
  alt,
 }: UserAvatarProps) {
- const [hasImageError, setHasImageError] = useState(false);
- const [prevSrc, setPrevSrc] = useState(src);
- if (src !== prevSrc) {
- setPrevSrc(src);
- setHasImageError(false);
+ const resolvedName = fullName || name;
+
+ // Use src URL directly from backend
+ const normalizedSrc = src;
+ const [failedSrc, setFailedSrc] = useState<string | null>(null);
+ const hasImageError = Boolean(normalizedSrc) && failedSrc === normalizedSrc;
+
+ if (process.env.NODE_ENV === "development") {
+   console.log(`[UserAvatar DevLog] User: ${resolvedName || email || "Unknown"}`, {
+     receivedSrc: src,
+     normalizedSrc,
+     hasImageError,
+   });
  }
 
- const initials = getUserInitials(fullName, email);
- const shouldShowImage = Boolean(src) && !hasImageError;
+ const handleImageError = () => {
+   if (process.env.NODE_ENV === "development") {
+     console.warn(`[UserAvatar Error] Failed to load image for ${resolvedName || email || "Unknown"}. URL attempted:`, normalizedSrc);
+   }
+   setFailedSrc(normalizedSrc ?? null);
+ };
+
+ const initials = getUserInitials(resolvedName, email);
+ const shouldShowImage = Boolean(normalizedSrc) && !hasImageError;
 
  const sizeClass = {
  xs: "h-6 w-6 text-[10px]",
@@ -77,7 +94,7 @@ export function UserAvatar({
  <div className={cn("relative inline-flex shrink-0 select-none", className)}>
  <div
  className={cn(
- "flex items-center justify-center overflow-hidden border border-white/40 bg-indigo-50 font-bold text-indigo-700 shadow-sm leading-none",
+ "flex items-center justify-center overflow-hidden border border-border/50 bg-primary/10 font-bold text-primary shadow-sm leading-none",
  sizeClass,
  roundedClass,
  )}
@@ -85,10 +102,10 @@ export function UserAvatar({
  {shouldShowImage ? (
  /* eslint-disable-next-line @next/next/no-img-element */
  <img
- src={src || undefined}
- alt={alt ?? fullName ?? "Usuario"}
+ src={normalizedSrc || undefined}
+ alt={alt ?? resolvedName ?? "Usuario"}
  className="h-full w-full object-cover"
- onError={() => setHasImageError(true)}
+ onError={handleImageError}
  />
  ) : (
  <span className="leading-none">{initials}</span>
@@ -98,12 +115,12 @@ export function UserAvatar({
  {showStatusDot && status ? (
  <span
  className={cn(
- "absolute bottom-0 right-0 rounded-full border-2 border-white ring-0",
+ "absolute bottom-0 right-0 rounded-full border-2 border-background ring-0",
  size === "xs" || size === "sm" ? "h-2.5 w-2.5" : "h-3.5 w-3.5",
  status === "active"
  ? "bg-emerald-500"
  : status === "inactive"
- ? "bg-slate-400"
+ ? "bg-muted-foreground"
  : "bg-amber-400",
  )}
  />

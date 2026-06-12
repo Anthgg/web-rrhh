@@ -16,6 +16,10 @@ export const backendRoutes = {
  current: adminApiEndpoints.profile.current,
  update: adminApiEndpoints.profile.update,
  changePassword: adminApiEndpoints.profile.changePassword,
+ sessions: adminApiEndpoints.profile.sessions,
+ sessionsOther: adminApiEndpoints.profile.sessionsOther,
+ sessionRevoke: (id: string) => appendId(adminApiEndpoints.profile.sessions, id),
+ sessionTrust: (id: string) => appendAction(adminApiEndpoints.profile.sessions, id, ["trust"]),
  },
  dashboard: {
  summary: adminApiEndpoints.dashboard.summary,

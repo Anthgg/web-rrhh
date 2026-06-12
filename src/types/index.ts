@@ -128,6 +128,7 @@ export interface UserProfile {
  personalId?: string | null;
  birthDate?: string | null;
  avatarUrl?: string | null;
+ profilePhotoUrl?: string | null;
  preferences?: VisualPreferences | null;
  forcePasswordChange?: boolean | null;
  gender?: string | null;
@@ -511,7 +512,7 @@ export interface ChangePasswordFormValues extends ChangePasswordPayload {
 }
 
 /** @deprecated Use ChangePasswordFormValues for forms, ChangePasswordPayload for API calls */
-export interface ChangePasswordInput extends ChangePasswordFormValues {}
+export type ChangePasswordInput = ChangePasswordFormValues;
 
 /** Normalized security data from the profile backend response */
 export interface NormalizedProfileSecurity {
@@ -617,4 +618,47 @@ export interface CreateTemporaryAssignmentPayload {
  reason?: string;
  endDate: string;
  autoReturn?: boolean;
+}
+
+export type ProfileSession = {
+  id: string;
+  userId: string;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+  location?: string | null;
+  country?: string | null;
+  city?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  browser?: string | null;
+  os?: string | null;
+  deviceType?: string | null;
+  deviceName?: string | null;
+  isTrusted: boolean;
+  trustedAt?: string | null;
+  trustAvailableAt?: string | null;
+  lastActivityAt?: string | null;
+  expiresAt?: string | null;
+  isCurrent: boolean;
+  canTrust: boolean;
+};
+
+export interface UserSession extends Partial<ProfileSession> {
+  browser: string; // Keep browser required for backwards compatibility
+  os?: string;
+  system?: string;
+  device_type?: string;
+  ip_address?: string;
+  ip?: string;
+  user_agent?: string;
+  metadata?: Record<string, unknown>;
+  lastActivity?: string;
+  last_activity?: string;
+  expires_at?: string;
+  expiration?: string;
+  is_trusted?: boolean;
+  trusted?: boolean;
+  is_current?: boolean;
+  current?: boolean;
+  trust_available_at?: string;
 }
