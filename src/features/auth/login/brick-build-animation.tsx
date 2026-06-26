@@ -11,23 +11,49 @@ interface BrickSpec {
   row: number;
   col: number;
   delay: number;
+  initialX: number;
+  initialY: number;
   isLast: boolean;
 }
 
-function buildBricks(step: number): BrickSpec[] {
+function buildBorderBricks(step: number): BrickSpec[] {
   const bricks: BrickSpec[] = [];
   let maxDelay = 0;
 
   for (let row = 0; row < ROWS; row += 1) {
     for (let col = 0; col < COLS; col += 1) {
-      // Reveal order: cascading diagonal waves
-      const order = row + col;
+      // We only place bricks on the edges (border frame)
+      const isEdge = row === 0 || row === ROWS - 1 || col === 0 || col === COLS - 1;
+      if (!isEdge) continue;
+
+      // Symmetric reveal delay based on distance from top-left/top-right
+      const order = row + Math.min(col, COLS - 1 - col);
       const delay = order * step;
       maxDelay = Math.max(maxDelay, delay);
-      bricks.push({ id: `${row}-${col}`, row, col, delay, isLast: false });
+
+      // Flying direction from outside
+      let initialX = 0;
+      let initialY = 0;
+
+      if (row === 0) initialY = -24;
+      else if (row === ROWS - 1) initialY = 24;
+
+      if (col === 0) initialX = -24;
+      else if (col === COLS - 1) initialX = 24;
+
+      bricks.push({
+        id: `${row}-${col}`,
+        row,
+        col,
+        delay,
+        initialX,
+        initialY,
+        isLast: false,
+      });
     }
   }
 
+  // Mark the last brick(s) to trigger the onBuilt callback
   return bricks.map((brick) => ({ ...brick, isLast: brick.delay === maxDelay }));
 }
 
@@ -39,53 +65,71 @@ interface BrickBuildAnimationProps {
 export function BrickBuildAnimation({ onBuilt, className }: BrickBuildAnimationProps) {
   const reduceMotion = useReducedMotion();
 
-  // Stagger parameters targeting ~1.8 seconds build time
+  // Animation settings for ~1.5s total time
   const step = reduceMotion ? 0.015 : 0.08;
-  const duration = reduceMotion ? 0.25 : 0.65;
-  const travelY = reduceMotion ? 5 : 24;
-  const fromScale = reduceMotion ? 0.98 : 0.8;
+  const duration = reduceMotion ? 0.25 : 0.6;
+  const fromScale = reduceMotion ? 0.98 : 0.9;
 
-  const bricks = buildBricks(step);
-  const rows = Array.from({ length: ROWS }, (_, row) => bricks.filter((b) => b.row === row));
+  const edgeBricks = buildBorderBricks(step);
+
+  // Generate a full grid array to render (including empty spacer divs for the center)
+  const gridCells = [];
+  for (let r = 0; r < ROWS; r += 1) {
+    for (let c = 0; c < COLS; c += 1) {
+      const brick = edgeBricks.find((b) => b.row === r && b.col === c);
+      gridCells.push({ row: r, col: c, brick });
+    }
+  }
 
   return (
     <div
       className={cn(
-        "grid h-full w-full grid-rows-6 gap-2.5 overflow-hidden p-4 relative z-10",
+        "grid h-full w-full grid-cols-6 grid-rows-6 gap-2.5 p-4 relative z-10 overflow-hidden",
         className
       )}
       aria-hidden
     >
-      {rows.map((rowBricks, rowIndex) => (
-        <div
-          key={rowIndex}
-          className="flex gap-2.5 font-sans"
-          style={{
-            width: "108%",
-            // Horizontal offset to simulate digital construction masonry
-            transform: rowIndex % 2 === 0 ? "translateX(-4%)" : "translateX(0%)",
-          }}
-        >
-          {rowBricks.map((brick) => {
-            const isHighlight = (rowIndex + brick.col) % 3 === 0;
-            return (
-              <motion.div
-                key={brick.id}
-                className={cn(
-                  "flex-1 rounded-[6px] border backdrop-blur-md transition-all duration-300",
-                  isHighlight
-                    ? "border-cyan-400/40 bg-gradient-to-br from-cyan-400/15 to-teal-400/20 shadow-[0_0_12px_rgba(34,211,238,0.22)]"
-                    : "border-cyan-500/20 bg-gradient-to-br from-cyan-500/8 to-teal-500/12 shadow-[0_0_8px_rgba(20,184,166,0.14)]"
-                )}
-                initial={{ opacity: 0, y: travelY, scale: fromScale, filter: "blur(3px)" }}
-                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-                transition={{ delay: brick.delay, duration, ease: [0.25, 1, 0.5, 1] }}
-                onAnimationComplete={brick.isLast ? onBuilt : undefined}
-              />
-            );
-          })}
-        </div>
-      ))}
+      {gridCells.map((cell) => {
+        const { brick, row, col } = cell;
+
+        if (!brick) {
+          // Empty center cells
+          return <div key={`empty-${row}-${col}`} className="invisible" />;
+        }
+
+        // Tech look: subtle variation of cyan/teal colors
+        const isTeal = (row + col) % 2 === 0;
+
+        return (
+          <motion.div
+            key={brick.id}
+            className={cn(
+              "rounded-[6px] border backdrop-blur-sm transition-all duration-300",
+              isTeal
+                ? "border-teal-500/20 bg-gradient-to-br from-teal-500/5 to-slate-900/40 shadow-[0_0_8px_rgba(20,184,166,0.12)]"
+                : "border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 to-slate-900/40 shadow-[0_0_8px_rgba(34,211,238,0.12)]"
+            )}
+            initial={{
+              opacity: 0,
+              x: brick.initialX,
+              y: brick.initialY,
+              scale: fromScale,
+            }}
+            animate={{
+              opacity: 0.8,
+              x: 0,
+              y: 0,
+              scale: 1,
+            }}
+            transition={{
+              delay: brick.delay,
+              duration,
+              ease: [0.25, 1, 0.5, 1],
+            }}
+            onAnimationComplete={brick.isLast ? onBuilt : undefined}
+          />
+        );
+      })}
     </div>
   );
 }

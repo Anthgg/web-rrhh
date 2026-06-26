@@ -22,7 +22,7 @@ import { z } from "zod";
 
 import { BrickBuildAnimation } from "@/features/auth/login/brick-build-animation";
 import { LoginHero } from "@/features/auth/login/login-hero";
-import { SessionExpiredAlert } from "@/features/auth/login/session-expired-alert";
+import { AuthReasonAlert } from "@/features/auth/login/auth-reason-alert";
 import { LoginBackgroundParticles } from "@/features/auth/login/login-background-particles";
 import { useSession } from "@/features/auth/auth-provider";
 import { ApiClientError } from "@/lib/api/client";
@@ -40,10 +40,10 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 function classifyLoginError(error: unknown): string {
   if (error instanceof ApiClientError) {
     if (error.status === 504) {
-      return "El servidor tardó demasiado en responder (Timeout). Es posible que el backend esté experimentando un inicio frío (cold start). Reintenta de nuevo.";
+      return "El servidor tardó demasiado en responder. Es posible que el backend esté experimentando un inicio frío (cold start). Reintenta en unos segundos.";
     }
     if (error.status === 503) {
-      return "El servidor de base de datos no está disponible. Reintenta en unos instantes.";
+      return "Servicio temporalmente no disponible (Base de datos). Por favor, intenta de nuevo.";
     }
     if (error.status === 401 || error.status === 400) {
       return "Correo o contraseña incorrectos.";
@@ -61,7 +61,7 @@ function classifyLoginError(error: unknown): string {
       lowerMessage.includes("failed to fetch") ||
       lowerMessage.includes("connection")
     ) {
-      return "Error de red. No se pudo conectar con el servidor. Revisa tu conexión.";
+      return "No se pudo conectar con el servidor. Verifica tu conexión a internet.";
     }
     return error.message;
   }
@@ -90,6 +90,11 @@ export function LoginForm() {
     } else if (reason === "session-expired") {
       toast.error("Tu sesión ha expirado. Inicia sesión nuevamente.", {
         id: "session-expired-toast",
+        duration: 5000,
+      });
+    } else if (reason === "auth-required") {
+      toast.error("Debes iniciar sesión para acceder al panel.", {
+        id: "auth-required-toast",
         duration: 5000,
       });
     }
@@ -157,74 +162,77 @@ export function LoginForm() {
     void handleSubmit(submitLogin)(event);
   };
 
-  // Staggered reveal of the form once the bricks finish building.
+  // Staggered animation
   const formContainer: Variants = {
     hidden: {},
-    show: { transition: { staggerChildren: reduceMotion ? 0.03 : 0.07, delayChildren: 0.05 } },
+    show: { transition: { staggerChildren: reduceMotion ? 0.03 : 0.06, delayChildren: 0.05 } },
   };
   const formItem: Variants = {
-    hidden: { opacity: 0, y: reduceMotion ? 4 : 14 },
+    hidden: { opacity: 0, y: reduceMotion ? 4 : 12 },
     show: { opacity: 1, y: 0, transition: { duration: reduceMotion ? 0.2 : 0.45, ease: [0.22, 1, 0.36, 1] } },
   };
 
   const year = new Date().getFullYear();
 
   return (
-    <main className="relative flex min-h-screen w-full bg-gradient-to-br from-[#090d16] via-[#061a1e] to-[#020408] text-white overflow-hidden font-sans select-none">
-      {/* Dynamic tech canvas particles */}
+    <main className="relative flex min-h-screen w-full bg-gradient-to-br from-[#0c2533] via-[#051c24] to-[#121618] text-white overflow-hidden font-sans select-none">
+      {/* Subtle tech background particles */}
       <LoginBackgroundParticles />
 
-      {/* Glow ambient background behind layout panels */}
-      <div className="pointer-events-none absolute right-[5%] top-[10%] size-[500px] rounded-full bg-cyan-500/5 blur-[140px] z-0" />
-      <div className="pointer-events-none absolute right-[25%] bottom-[10%] size-[400px] rounded-full bg-teal-500/5 blur-[120px] z-0" />
+      {/* Corporate soft background glows */}
+      <div className="pointer-events-none absolute right-[10%] top-[15%] size-[450px] rounded-full bg-cyan-500/5 blur-[120px] z-0" />
+      <div className="pointer-events-none absolute right-[20%] bottom-[15%] size-[350px] rounded-full bg-teal-500/5 blur-[100px] z-0" />
 
-      {/* Column Left (Brand info, benefits & worker visual) */}
+      {/* Column Left (52% width) */}
       <LoginHero />
 
-      {/* Column Right (Card de login centrado verticalmente) */}
-      <div className="relative flex flex-col w-full lg:w-[50%] xl:w-[46%] items-center justify-center px-4 py-8 sm:px-8 z-10">
+      {/* Vertical subtle divider line */}
+      <div className="hidden lg:block w-px bg-gradient-to-b from-transparent via-slate-800/40 to-transparent self-stretch my-16 z-10" />
+
+      {/* Column Right (48% width, centered login card) */}
+      <div className="relative flex flex-col w-full lg:w-[48%] items-center justify-center px-4 py-8 sm:px-12 z-10">
         
-        {/* Mobile Header Branding */}
+        {/* Mobile Header Logo */}
         <div className="mb-6 flex flex-col items-center justify-center gap-2 lg:hidden">
           <div className="flex items-center gap-3">
-            <div className="relative size-10 overflow-hidden rounded-xl bg-gradient-to-br from-cyan-400/20 to-teal-400/20 p-2 border border-cyan-500/20 shadow-md">
+            <div className="relative size-10 overflow-hidden rounded-xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 p-2 border border-cyan-500/20 shadow-md">
               <Image src="/logo.png" alt="FABRYOR" fill sizes="40px" className="object-contain p-0.5" priority />
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">
-              FABRYOR <span className="text-cyan-400">Admin</span>
+            <span className="text-xl font-black tracking-tight text-white">
+              FABRYOR <span className="text-cyan-400 font-bold">Admin</span>
             </span>
           </div>
-          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-400/80 bg-cyan-500/5 px-3 py-1 rounded-full border border-cyan-500/10 mt-1">
-            Gestión Operativa
+          <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">
+            Control de Personal y Obra
           </span>
         </div>
 
-        {/* Card footprint */}
-        <div className="relative w-full max-w-[480px] sm:max-w-[500px] flex flex-col justify-center">
+        {/* Card footprint (480px to 540px) */}
+        <div className="relative w-full max-w-[480px] sm:max-w-[520px] flex flex-col justify-center">
           
-          {/* External glow backing */}
+          {/* Card Border Glow Backup */}
           <div 
-            className="pointer-events-none absolute -inset-6 rounded-[36px] bg-gradient-to-tr from-cyan-500/10 to-teal-500/5 blur-2xl transition-opacity duration-1000" 
-            style={{ opacity: built ? 0.8 : 0 }} 
+            className="pointer-events-none absolute -inset-4 rounded-[36px] bg-gradient-to-tr from-cyan-500/5 to-teal-500/5 blur-xl transition-opacity duration-1000" 
+            style={{ opacity: built ? 0.6 : 0 }} 
           />
 
-          {/* Login Card */}
+          {/* Card element */}
           <div
             className={cn(
-              "relative w-full rounded-[32px] border transition-all duration-700 backdrop-blur-2xl px-6 py-8 sm:px-10 sm:py-10 min-h-[580px] flex flex-col justify-center",
+              "relative w-full rounded-[32px] border transition-all duration-700 backdrop-blur-2xl px-6 py-9 sm:px-11 sm:py-11 min-h-[580px] flex flex-col justify-center",
               built
-                ? "bg-slate-950/45 border-cyan-500/20 shadow-[0_25px_60px_rgba(0,0,0,0.65)]"
-                : "bg-transparent border-transparent shadow-none"
+                ? "bg-[#0b171f]/50 border-slate-800 shadow-[0_25px_50px_rgba(0,0,0,0.55)]"
+                : "bg-transparent border-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.02)] border-dashed animate-pulse"
             )}
           >
-            {/* Brick build animation overlay */}
+            {/* Border modular brick assembly */}
             <AnimatePresence mode="wait">
               {!built && (
                 <motion.div
                   key="bricks"
                   initial={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
                   className="absolute inset-0 flex items-center justify-center"
                 >
                   <BrickBuildAnimation onBuilt={() => setBuilt(true)} />
@@ -232,55 +240,55 @@ export function LoginForm() {
               )}
             </AnimatePresence>
 
-            {/* Form content (revealed when built is true) */}
+            {/* LoginForm content */}
             <motion.div
               variants={formContainer}
               initial="hidden"
               animate={built ? "show" : "hidden"}
-              className={cn("space-y-6", !built && "pointer-events-none opacity-0")}
+              className={cn("space-y-7", !built && "pointer-events-none opacity-0")}
             >
-              {/* Header with shield badge */}
+              {/* Shield Title Header */}
               <motion.div variants={formItem} className="space-y-4">
-                <span className="flex size-12 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.15)]">
+                <span className="flex size-12 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/15 shadow-[0_0_12px_rgba(34,211,238,0.12)]">
                   <ShieldCheck className="size-6" />
                 </span>
-                <div className="space-y-1">
-                  <h2 className="text-2xl font-bold tracking-tight text-white sm:text-[28px]">
+                <div className="space-y-1.5">
+                  <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-[30px] leading-tight">
                     Bienvenido de nuevo
                   </h2>
-                  <p className="text-xs sm:text-sm leading-relaxed text-slate-400">
-                    Accede a tu panel de gestión y control de asistencia
+                  <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                    Accede a tu panel de gestión y control operativo
                   </p>
                 </div>
               </motion.div>
 
-              {/* Expired Session Alert */}
-              {(reason === "session-expired" || reason === "session-revoked") && (
+              {/* Reason alert */}
+              {reason && (
                 <motion.div variants={formItem}>
-                  <SessionExpiredAlert reason={reason} />
+                  <AuthReasonAlert reason={reason} />
                 </motion.div>
               )}
 
-              {/* Credential Error message */}
+              {/* Login Errors */}
               {authError && (
                 <motion.div
                   variants={formItem}
                   role="alert"
-                  className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-3.5 text-rose-300"
+                  className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-rose-300"
                 >
                   <TriangleAlert className="mt-0.5 size-[18px] shrink-0" aria-hidden />
-                  <p className="text-[13px] leading-relaxed">{authError}</p>
+                  <p className="text-[13px] leading-relaxed font-medium">{authError}</p>
                 </motion.div>
               )}
 
-              <form className="space-y-5" onSubmit={onSubmit} noValidate>
-                {/* Email Input */}
-                <motion.div variants={formItem} className="space-y-2">
-                  <label htmlFor="login-email" className="block text-sm font-medium text-slate-200">
+              <form className="space-y-6" onSubmit={onSubmit} noValidate>
+                {/* Email input with real labels */}
+                <motion.div variants={formItem} className="space-y-2.5">
+                  <label htmlFor="login-email" className="block text-[13px] sm:text-sm font-semibold text-slate-300 tracking-wide">
                     Correo corporativo
                   </label>
                   <div className="relative">
-                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-600" />
                     <input
                       id="login-email"
                       type="email"
@@ -288,29 +296,29 @@ export function LoginForm() {
                       autoComplete="email"
                       aria-invalid={Boolean(errors.email)}
                       className={cn(
-                        "h-12 w-full rounded-xl border bg-slate-950/40 pl-11 pr-4 text-sm text-white outline-none transition-all duration-200 placeholder:text-slate-600 focus:bg-slate-950/60",
+                        "h-13 w-full rounded-xl border bg-slate-950/40 pl-11 pr-4 text-sm sm:text-base text-white outline-none transition-all duration-200 placeholder:text-slate-600 focus:bg-slate-950/70",
                         errors.email
                           ? "border-rose-500/40 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10"
-                          : "border-cyan-500/10 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10",
+                          : "border-slate-800 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10",
                       )}
                       {...register("email")}
                     />
                   </div>
                   {errors.email && (
-                    <p className="flex items-center gap-1.5 text-xs font-medium text-rose-400">
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-400">
                       <span className="inline-block size-1 rounded-full bg-rose-400 animate-pulse" />
                       {errors.email.message}
                     </p>
                   )}
                 </motion.div>
 
-                {/* Password Input */}
-                <motion.div variants={formItem} className="space-y-2">
-                  <label htmlFor="login-password" className="block text-sm font-medium text-slate-200">
+                {/* Password input with real labels */}
+                <motion.div variants={formItem} className="space-y-2.5">
+                  <label htmlFor="login-password" className="block text-[13px] sm:text-sm font-semibold text-slate-300 tracking-wide">
                     Contraseña
                   </label>
                   <div className="relative">
-                    <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />
+                    <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-600" />
                     <input
                       id="login-password"
                       type={showPassword ? "text" : "password"}
@@ -318,10 +326,10 @@ export function LoginForm() {
                       autoComplete="current-password"
                       aria-invalid={Boolean(errors.password)}
                       className={cn(
-                        "h-12 w-full rounded-xl border bg-slate-950/40 pl-11 pr-12 text-sm text-white outline-none transition-all duration-200 placeholder:text-slate-600 focus:bg-slate-950/60",
+                        "h-13 w-full rounded-xl border bg-slate-950/40 pl-11 pr-12 text-sm sm:text-base text-white outline-none transition-all duration-200 placeholder:text-slate-600 focus:bg-slate-950/70",
                         errors.password
                           ? "border-rose-500/40 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10"
-                          : "border-cyan-500/10 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10",
+                          : "border-slate-800 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10",
                       )}
                       {...register("password")}
                     />
@@ -335,26 +343,26 @@ export function LoginForm() {
                     </button>
                   </div>
                   {errors.password && (
-                    <p className="flex items-center gap-1.5 text-xs font-medium text-rose-400">
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-400">
                       <span className="inline-block size-1 rounded-full bg-rose-400 animate-pulse" />
                       {errors.password.message}
                     </p>
                   )}
                 </motion.div>
 
-                {/* Remember and Forgot password option */}
+                {/* Remember & forgot password */}
                 <motion.div variants={formItem} className="flex items-center justify-between gap-3 pt-1">
                   <label htmlFor="login-remember" className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm text-slate-400 select-none">
                     <input
                       id="login-remember"
                       type="checkbox"
-                      className="size-4 rounded border-cyan-500/20 bg-slate-950 text-cyan-500 focus:ring-0 focus:ring-offset-0"
+                      className="size-4 rounded border-slate-800 bg-slate-950 text-cyan-500 focus:ring-0 focus:ring-offset-0"
                     />
                     Recordarme
                   </label>
                   <button
                     type="button"
-                    className="text-xs sm:text-sm font-semibold text-cyan-400 transition-opacity hover:opacity-80"
+                    className="text-xs sm:text-sm font-bold text-cyan-400 transition-opacity hover:opacity-80"
                     onClick={() =>
                       toast.info(
                         "Contacta a tu administrador para restablecer tu contraseña.",
@@ -366,7 +374,7 @@ export function LoginForm() {
                   </button>
                 </motion.div>
 
-                {/* Slow Connection indicator */}
+                {/* Slow Connection flag */}
                 {isSlow && isLoading && (
                   <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-300">
                     <Clock className="mt-0.5 size-4 shrink-0 animate-pulse text-amber-400" />
@@ -379,16 +387,16 @@ export function LoginForm() {
                   </div>
                 )}
 
-                {/* Submit button */}
+                {/* Main Submit Button */}
                 <motion.button
                   variants={formItem}
                   type="submit"
                   disabled={isLoading}
                   className={cn(
-                    "group relative mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-500/10 transition-all duration-200",
+                    "group relative mt-1 flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 text-sm sm:text-base font-bold text-slate-950 shadow-lg shadow-cyan-500/5 transition-all duration-200",
                     isLoading
                       ? "cursor-not-allowed opacity-75"
-                      : "hover:-translate-y-0.5 hover:shadow-cyan-500/20 hover:shadow-xl active:translate-y-0",
+                      : "hover:-translate-y-0.5 hover:shadow-cyan-500/15 hover:shadow-xl active:translate-y-0",
                   )}
                 >
                   {isLoading ? (
@@ -405,10 +413,10 @@ export function LoginForm() {
                 </motion.button>
               </form>
 
-              {/* Encryption Notice */}
+              {/* Encryption Bottom Banner */}
               <motion.div
                 variants={formItem}
-                className="flex items-start gap-2.5 rounded-2xl border border-cyan-500/10 bg-slate-900/30 p-3.5"
+                className="flex items-start gap-2.5 rounded-2xl border border-slate-800/80 bg-slate-900/10 p-4"
               >
                 <ShieldCheck className="mt-0.5 size-4 shrink-0 text-cyan-400" />
                 <p className="text-[11px] leading-relaxed text-slate-400">
