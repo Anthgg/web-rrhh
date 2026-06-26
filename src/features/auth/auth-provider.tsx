@@ -88,6 +88,15 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
   const lastRedirectRef = useRef<string | null>(null);
   const isAuthenticated = status === "authenticated" || Boolean(user);
 
+  const hasManuallyLoggedOutRef = useRef(false);
+  const statusRef = useRef(status);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    statusRef.current = status;
+    userRef.current = user;
+  });
+
   const replaceOnce = useCallback(
     (target: string) => {
       if (lastRedirectRef.current === target) return;
@@ -115,6 +124,10 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
     sessionRequestRef.current = authService
       .session()
       .then((session) => {
+        if (statusRef.current === "authenticated") {
+          return session.user;
+        }
+
         setClientAccessToken(session.accessToken);
         setUser(session.user);
         setStatus("authenticated");
@@ -141,6 +154,10 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
         return session.user;
       })
       .catch((error: unknown) => {
+        if (statusRef.current === "authenticated") {
+          return null;
+        }
+
         const httpStatus = error instanceof ApiClientError ? error.status : 0;
         const isAuthFailure = httpStatus === 401 || httpStatus === 403;
 
@@ -182,6 +199,7 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
 
   const logout = useCallback(
     async (redirectToLogin = true, reason?: string) => {
+      hasManuallyLoggedOutRef.current = true;
       await authService.logout().catch(() => undefined);
       queryClient.clear();
       clearClientAccessToken();
@@ -210,6 +228,7 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
   const login = useCallback(
     async (payload: LoginPayload) => {
       setStatus("loading");
+      hasManuallyLoggedOutRef.current = false;
       const session = await authService.login(payload);
       setClientAccessToken(session.accessToken);
       setUser(session.user);
@@ -238,6 +257,10 @@ export function AuthProvider({ children, hasSessionCandidate }: AuthProviderProp
   );
 
   useEffect(() => {
+    if (hasManuallyLoggedOutRef.current) {
+      return;
+    }
+
     if (!hasSessionCandidate && isAuthenticated) {
       return;
     }
