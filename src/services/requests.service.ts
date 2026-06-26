@@ -1,6 +1,7 @@
 import { ApiClientError, apiClient } from "@/lib/api/client";
 import { webApiEndpoints } from "@/lib/api/endpoints";
 import { buildRequestQueryFilters, requestDefaultStats } from "@/lib/utils/requests";
+import { withGlobalLoading } from "@/store/loading-store";
 import type {
  CreateRequestPayload,
  PaginatedRequestReportRowsResponse,
@@ -24,19 +25,6 @@ import type {
 const requestStatsCache = new Map<string, { expiresAt: number; value: RequestStats }>();
 const inflightRequestStats = new Map<string, Promise<RequestStats>>();
 const requestStatsTtlMs = 60_000;
-
-function buildQuery(input?: Record<string, string | number | undefined>) {
- const params = new URLSearchParams();
-
- for (const [key, value] of Object.entries(input ?? {})) {
- if (value !== undefined && value !== null && value !== "") {
- params.set(key, String(value));
- }
- }
-
- const serialized = params.toString();
- return serialized ? `?${serialized}` : "";
-}
 
 function resolveListEndpoint(scope: RequestScope) {
  if (scope === "my") return webApiEndpoints.requests.my;
@@ -132,6 +120,7 @@ function resolveDownloadFileName(
 }
 
 async function downloadFile(endpoint: string, fallbackFileName: string) {
+ return withGlobalLoading(async () => {
  const response = await fetch(endpoint, {
  method: "GET",
  credentials: "same-origin",
@@ -159,9 +148,15 @@ async function downloadFile(endpoint: string, fallbackFileName: string) {
  anchor.click();
  anchor.remove();
  window.URL.revokeObjectURL(url);
+ }, {
+ message: "Descargando archivo...",
+ description: "Preparando el documento solicitado.",
+ variant: "processing",
+ });
 }
 
 async function downloadFilePost(endpoint: string, body: unknown, fallbackFileName: string) {
+ return withGlobalLoading(async () => {
  const response = await fetch(endpoint, {
  method: "POST",
  credentials: "same-origin",
@@ -194,6 +189,11 @@ async function downloadFilePost(endpoint: string, body: unknown, fallbackFileNam
  anchor.click();
  anchor.remove();
  window.URL.revokeObjectURL(url);
+ }, {
+ message: "Generando reporte...",
+ description: "Procesando datos y preparando la descarga.",
+ variant: "processing",
+ });
 }
 
 async function listByScope(scope: RequestScope, filters: RequestListFilters) {
@@ -296,10 +296,31 @@ export const requestsService = {
  getTypes: () => apiClient<RequestType[]>(webApiEndpoints.requests.types),
  getReportColumns: () =>
  apiClient<RequestReportColumn[]>(webApiEndpoints.requests.reportColumns),
- getReportPreview: (scope: RequestScope, filters: RequestReportFilters, columns?: string[]) =>
- apiClient<PaginatedRequestReportRowsResponse>(webApiEndpoints.requests.reports, {
- query: buildRequestReportQuery(filters, scope, columns),
- }),
+ getReportPreview: (scope: RequestScope, filters: RequestReportFilters, columns?: string[]) => {
+    const apiFilters = {
+      dateFrom: filters.dateFrom || null,
+      dateTo: filters.dateTo || null,
+      status: filters.status && filters.status !== "all" ? filters.status : null,
+      requestType: filters.typeId || null,
+      workerId: filters.worker || null,
+      department: filters.department || null,
+      company: filters.company || null,
+      approver: filters.approver || null,
+      search: filters.search || null,
+    };
+
+    return apiClient<any>(webApiEndpoints.requests.reportPreview, {
+      method: "POST",
+      body: {
+        filters: apiFilters,
+        columns,
+        scope,
+      },
+      loaderMessage: "Cargando reporte de solicitudes...",
+      loaderDescription: "Aplicando filtros y preparando la tabla.",
+      loaderVariant: "processing",
+    });
+  },
  downloadReport: (
  format: RequestReportDownloadFormat,
  scope: RequestScope,
@@ -391,4 +412,16 @@ export const requestsService = {
  method: "DELETE",
  },
  ),
+ generateDocument: (requestId: string) =>
+ apiClient<RequestDetail>(`/api/requests/${requestId}/documents/generate`, {
+ method: "POST",
+ }),
+ uploadSignedDocument: (requestId: string, file: File) => {
+ const formData = new FormData();
+ formData.append("file", file);
+ return apiClient<RequestDetail>(`/api/requests/${requestId}/documents/signed`, {
+ method: "POST",
+ body: formData,
+ });
+ },
 };

@@ -277,7 +277,7 @@ export function CorporateReportsPanel({
  description="Genera documentos oficiales en PDF con la identidad corporativa de FABRYOR."
  >
  <div className="grid gap-6">
- <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm dark:border-border dark:bg-foreground">
+ <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
  <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl border border-border bg-card ">
  <Image
  src="/logo.png"
@@ -289,7 +289,7 @@ export function CorporateReportsPanel({
  />
  </div>
  <div className="grid gap-1">
- <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
+ <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground ">
  FABRYOR SERVICIOS GENERALES S.A.C.
  </p>
  <p className="text-sm leading-6 text-muted-foreground ">
@@ -300,14 +300,14 @@ export function CorporateReportsPanel({
 
  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
  {/* 1. Solicitudes */}
- <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:border-border dark:bg-foreground flex flex-col justify-between hover:shadow-md transition-shadow">
+ <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
  <div className="grid gap-4 mb-5">
  <div className="flex items-start gap-4">
- <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+ <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
  <FileText className="size-5" />
  </div>
  <div className="grid gap-1">
- <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Solicitudes</h3>
+ <h3 className="text-lg font-semibold text-foreground">Solicitudes</h3>
  <p className="text-sm leading-5 text-muted-foreground">Exporta solicitudes laborales filtradas por rango de fechas, estado y trabajador.</p>
  </div>
  </div>
@@ -374,11 +374,11 @@ export function CorporateReportsPanel({
  )}
 
  {/* Personalización */}
- <div className="border-t border-border dark:border-border pt-3">
+ <div className="border-t border-border pt-3">
  <button
  type="button"
  onClick={() => toggleSettings("requests")}
- className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-slate-200 transition-colors"
+ className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground  hover:text-foreground transition-colors"
  >
  <Settings2 className="size-3.5" />
  {activeSettingsCard === "requests" ? "Ocultar personalización" : "Personalizar títulos (Opcional)"}
@@ -422,21 +422,21 @@ export function CorporateReportsPanel({
  documentType={requestCustom.docType || "Reporte de Solicitudes"}
  internalLabel={requestCustom.label || undefined}
  disabled={Boolean(requestValidationError)}
- className="w-full h-11 rounded-xl bg-blue-900 text-white shadow hover:bg-blue-950 transition-all active:scale-[0.98]"
+ className="w-full h-11 rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-all active:scale-[0.98]"
  >
  Descargar PDF de Solicitudes
  </DownloadPdfButton>
  </div>
 
  {/* 2. Asistencia */}
- <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:border-border dark:bg-foreground flex flex-col justify-between hover:shadow-md transition-shadow">
+ <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
  <div className="grid gap-4 mb-5">
  <div className="flex items-start gap-4">
- <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+ <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
  <CalendarCheck className="size-5" />
  </div>
  <div className="grid gap-1">
- <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Asistencia</h3>
+ <h3 className="text-lg font-semibold text-foreground">Asistencia</h3>
  <p className="text-sm leading-5 text-muted-foreground">Descarga el consolidado oficial de asistencia en PDF por colaborador o periodo.</p>
  </div>
  </div>
@@ -483,11 +483,11 @@ export function CorporateReportsPanel({
  )}
 
  {/* Personalización */}
- <div className="border-t border-border dark:border-border pt-3">
+ <div className="border-t border-border pt-3">
  <button
  type="button"
  onClick={() => toggleSettings("attendance")}
- className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-slate-200 transition-colors"
+ className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground  hover:text-foreground transition-colors"
  >
  <Settings2 className="size-3.5" />
  {activeSettingsCard === "attendance" ? "Ocultar personalización" : "Personalizar títulos (Opcional)"}
@@ -531,21 +531,21 @@ export function CorporateReportsPanel({
  documentType={attendanceCustom.docType || "Reporte de Asistencia"}
  internalLabel={attendanceCustom.label || undefined}
  disabled={Boolean(attendanceValidationError)}
- className="w-full h-11 rounded-xl bg-blue-900 text-white shadow hover:bg-blue-950 transition-all active:scale-[0.98]"
+ className="w-full h-11 rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-all active:scale-[0.98]"
  >
  Descargar PDF de Asistencia
  </DownloadPdfButton>
  </div>
 
  {/* 3. Colaboradores */}
- <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:border-border dark:bg-foreground flex flex-col justify-between hover:shadow-md transition-shadow">
+ <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
  <div className="grid gap-4 mb-5">
  <div className="flex items-start gap-4">
- <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+ <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
  <Users className="size-5" />
  </div>
  <div className="grid gap-1">
- <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Colaboradores</h3>
+ <h3 className="text-lg font-semibold text-foreground">Colaboradores</h3>
  <p className="text-sm leading-5 text-muted-foreground">Genera el reporte PDF de trabajadores activos o inactivos con filtro departamental.</p>
  </div>
  </div>
@@ -588,11 +588,11 @@ export function CorporateReportsPanel({
  </div>
 
  {/* Personalización */}
- <div className="border-t border-border dark:border-border pt-3">
+ <div className="border-t border-border pt-3">
  <button
  type="button"
  onClick={() => toggleSettings("workers")}
- className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-slate-200 transition-colors"
+ className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground  hover:text-foreground transition-colors"
  >
  <Settings2 className="size-3.5" />
  {activeSettingsCard === "workers" ? "Ocultar personalización" : "Personalizar títulos (Opcional)"}
@@ -635,21 +635,21 @@ export function CorporateReportsPanel({
  reportTitle={workersCustom.title || undefined}
  documentType={workersCustom.docType || "Reporte de Colaboradores"}
  internalLabel={workersCustom.label || undefined}
- className="w-full h-11 rounded-xl bg-blue-900 text-white shadow hover:bg-blue-950 transition-all active:scale-[0.98]"
+ className="w-full h-11 rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-all active:scale-[0.98]"
  >
  Descargar PDF de Colaboradores
  </DownloadPdfButton>
  </div>
 
  {/* 4. Nómina / Planilla */}
- <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:border-border dark:bg-foreground flex flex-col justify-between hover:shadow-md transition-shadow">
+ <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
  <div className="grid gap-4 mb-5">
  <div className="flex items-start gap-4">
- <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+ <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
  <CreditCard className="size-5" />
  </div>
  <div className="grid gap-1">
- <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Nómina / Planilla</h3>
+ <h3 className="text-lg font-semibold text-foreground">Nómina / Planilla</h3>
  <p className="text-sm leading-5 text-muted-foreground">Descarga el documento PDF de planilla por periodo y estado de aprobación.</p>
  </div>
  </div>
@@ -689,11 +689,11 @@ export function CorporateReportsPanel({
  </div>
 
  {/* Personalización */}
- <div className="border-t border-border dark:border-border pt-3">
+ <div className="border-t border-border pt-3">
  <button
  type="button"
  onClick={() => toggleSettings("payroll")}
- className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-slate-200 transition-colors"
+ className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground  hover:text-foreground transition-colors"
  >
  <Settings2 className="size-3.5" />
  {activeSettingsCard === "payroll" ? "Ocultar personalización" : "Personalizar títulos (Opcional)"}
@@ -736,21 +736,21 @@ export function CorporateReportsPanel({
  reportTitle={payrollCustom.title || undefined}
  documentType={payrollCustom.docType || "Reporte de Nómina"}
  internalLabel={payrollCustom.label || undefined}
- className="w-full h-11 rounded-xl bg-blue-900 text-white shadow hover:bg-blue-950 transition-all active:scale-[0.98]"
+ className="w-full h-11 rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-all active:scale-[0.98]"
  >
  Descargar PDF de Nómina
  </DownloadPdfButton>
  </div>
 
  {/* 5. Resumen Mensual */}
- <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:border-border dark:bg-foreground flex flex-col justify-between hover:shadow-md transition-shadow">
+ <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
  <div className="grid gap-4 mb-5">
  <div className="flex items-start gap-4">
- <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+ <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
  <BarChart3 className="size-5" />
  </div>
  <div className="grid gap-1">
- <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Resumen Mensual</h3>
+ <h3 className="text-lg font-semibold text-foreground">Resumen Mensual</h3>
  <p className="text-sm leading-5 text-muted-foreground">Consolidado general de horas, incidencias y eventos operacionales del mes.</p>
  </div>
  </div>
@@ -797,11 +797,11 @@ export function CorporateReportsPanel({
  )}
 
  {/* Personalización */}
- <div className="border-t border-border dark:border-border pt-3">
+ <div className="border-t border-border pt-3">
  <button
  type="button"
  onClick={() => toggleSettings("monthly")}
- className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-slate-200 transition-colors"
+ className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground  hover:text-foreground transition-colors"
  >
  <Settings2 className="size-3.5" />
  {activeSettingsCard === "monthly" ? "Ocultar personalización" : "Personalizar títulos (Opcional)"}
@@ -845,21 +845,21 @@ export function CorporateReportsPanel({
  documentType={monthlyCustom.docType || "Reporte de Resumen Mensual"}
  internalLabel={monthlyCustom.label || undefined}
  disabled={Boolean(monthlyValidationError)}
- className="w-full h-11 rounded-xl bg-blue-900 text-white shadow hover:bg-blue-950 transition-all active:scale-[0.98]"
+ className="w-full h-11 rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-all active:scale-[0.98]"
  >
  Descargar Resumen Mensual
  </DownloadPdfButton>
  </div>
 
  {/* 6. Vacaciones */}
- <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:border-border dark:bg-foreground flex flex-col justify-between hover:shadow-md transition-shadow">
+ <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
  <div className="grid gap-4 mb-5">
  <div className="flex items-start gap-4">
- <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+ <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
  <Palmtree className="size-5" />
  </div>
  <div className="grid gap-1">
- <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Vacaciones</h3>
+ <h3 className="text-lg font-semibold text-foreground">Vacaciones</h3>
  <p className="text-sm leading-5 text-muted-foreground">Historial y saldos de vacaciones por colaborador, año fiscal o estado.</p>
  </div>
  </div>
@@ -908,11 +908,11 @@ export function CorporateReportsPanel({
  </FieldFrame>
 
  {/* Personalización */}
- <div className="border-t border-border dark:border-border pt-3">
+ <div className="border-t border-border pt-3">
  <button
  type="button"
  onClick={() => toggleSettings("vacations")}
- className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-slate-200 transition-colors"
+ className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground  hover:text-foreground transition-colors"
  >
  <Settings2 className="size-3.5" />
  {activeSettingsCard === "vacations" ? "Ocultar personalización" : "Personalizar títulos (Opcional)"}
@@ -955,21 +955,21 @@ export function CorporateReportsPanel({
  reportTitle={vacationCustom.title || undefined}
  documentType={vacationCustom.docType || "Reporte de Vacaciones"}
  internalLabel={vacationCustom.label || undefined}
- className="w-full h-11 rounded-xl bg-blue-900 text-white shadow hover:bg-blue-950 transition-all active:scale-[0.98]"
+ className="w-full h-11 rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-all active:scale-[0.98]"
  >
  Descargar PDF de Vacaciones
  </DownloadPdfButton>
  </div>
 
  {/* 7. Documentos */}
- <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:border-border dark:bg-foreground flex flex-col justify-between hover:shadow-md transition-shadow">
+ <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
  <div className="grid gap-4 mb-5">
  <div className="flex items-start gap-4">
- <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+ <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
  <FolderOpen className="size-5" />
  </div>
  <div className="grid gap-1">
- <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Documentos</h3>
+ <h3 className="text-lg font-semibold text-foreground">Documentos</h3>
  <p className="text-sm leading-5 text-muted-foreground">Expediente corporativo y control de vigencia documental de los colaboradores.</p>
  </div>
  </div>
@@ -1002,11 +1002,11 @@ export function CorporateReportsPanel({
  </div>
 
  {/* Personalización */}
- <div className="border-t border-border dark:border-border pt-3">
+ <div className="border-t border-border pt-3">
  <button
  type="button"
  onClick={() => toggleSettings("documents")}
- className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-slate-200 transition-colors"
+ className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground  hover:text-foreground transition-colors"
  >
  <Settings2 className="size-3.5" />
  {activeSettingsCard === "documents" ? "Ocultar personalización" : "Personalizar títulos (Opcional)"}
@@ -1049,7 +1049,7 @@ export function CorporateReportsPanel({
  reportTitle={documentCustom.title || undefined}
  documentType={documentCustom.docType || "Reporte de Documentos"}
  internalLabel={documentCustom.label || undefined}
- className="w-full h-11 rounded-xl bg-blue-900 text-white shadow hover:bg-blue-950 transition-all active:scale-[0.98]"
+ className="w-full h-11 rounded-xl bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-all active:scale-[0.98]"
  >
  Descargar PDF de Documentos
  </DownloadPdfButton>
@@ -1057,16 +1057,16 @@ export function CorporateReportsPanel({
  </div>
 
  {/* 8. Interactive Custom Table Section (customData) */}
- <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:border-border dark:bg-foreground mt-2">
- <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-border dark:border-border/80">
+ <div className="rounded-2xl border border-border bg-card p-6 shadow-sm mt-2">
+ <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-border/80">
  <div className="flex items-start gap-4">
- <div className="flex size-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200 shrink-0">
+ <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shrink-0">
  <Table className="size-5" />
  </div>
  <div className="grid gap-1">
  <div className="flex items-center gap-2">
- <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Exportación Directa de Tabla Visual (customData)</h3>
- <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+ <h3 className="text-lg font-semibold text-foreground">Exportación Directa de Tabla Visual (customData)</h3>
+ <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
  <Sparkles className="size-3" />
  Mapeo Manual
  </span>
@@ -1110,17 +1110,17 @@ export function CorporateReportsPanel({
  <AlertCircle className="size-5 text-amber-700 shrink-0 mt-0.5" />
  <div className="grid gap-0.5">
  <span className="text-xs font-semibold text-foreground ">Compilación y Firmas del Backend (RR.HH.)</span>
- <span className="text-xs text-muted-foreground dark:text-muted-foreground leading-4">
+ <span className="text-xs text-muted-foreground  leading-4">
  La generación de este PDF tarda entre 1.5 y 3 segundos debido a la incrustación de logos dinámicos de FABRYOR, la compilación de firmas digitales y la encriptación de metadatos de seguridad del documento.
  </span>
  </div>
  </div>
 
  {/* Table Container */}
- <div className="overflow-x-auto rounded-xl border border-border dark:border-border mb-6">
+ <div className="overflow-x-auto rounded-xl border border-border mb-6">
  <table className="w-full text-left border-collapse">
  <thead>
- <tr className="bg-muted /80 border-b border-border dark:border-border">
+ <tr className="bg-muted /80 border-b border-border">
  <th className="p-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Colaborador</th>
  <th className="p-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Ingreso</th>
  <th className="p-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Estatus</th>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -13,22 +13,22 @@ import {
   AlertTriangle,
   Monitor,
   ShieldAlert,
-  Smartphone,
-  Tablet,
-  Laptop,
   ShieldCheck,
-  Trash2,
   Clock,
   MapPin,
+  Wifi,
+  LogOut,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { FieldFrame, Input } from "@/components/ui/fields";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type { ChangePasswordFormValues, UserProfile, ProfileSession } from "@/types";
-import { useSession } from "@/features/auth/auth-provider";
 import { ProfileSectionCard } from "./ProfileSectionCard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { AppLottie } from "@/components/ui/feedback/AppLottie";
+import { feedbackAnimations } from "@/components/ui/feedback/animation-registry";
 import {
   getActiveSessions,
   revokeSession,
@@ -36,7 +36,19 @@ import {
   trustSession,
 } from "@/services/profile.service";
 import { getApiErrorCode, getApiErrorDetails } from "@/lib/api/error-handlers";
-import { parseDeviceInfo } from "@/lib/security/device-parser";
+import { ApiClientError } from "@/lib/api/client";
+import {
+  formatDateTime,
+  formatTrustAvailableAt,
+  getDeviceIcon,
+  getSafeDeviceName,
+  getSafeBrowser,
+  getSafeOs,
+  getSafeIp,
+  getSafeLocation,
+  getDeviceTypeLabelEs,
+  getRelativeTimeLabel,
+} from "@/lib/api/normalizers/session-normalizer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 
@@ -62,25 +74,25 @@ const passwordSchema = z
     path: ["newPassword"],
   });
 
+interface GroupedDevice {
+  deviceId: string | null;
+  deviceName: string;
+  deviceType: string;
+  browser: string;
+  os: string;
+  isCurrent: boolean;
+  isTrusted: boolean;
+  canTrust: boolean;
+  trustAvailableAt: string | null;
+  isLegacy: boolean;
+  sessions: ProfileSession[];
+}
+
 interface ProfileSecurityTabProps {
   user: UserProfile;
   /** Called with only currentPassword + newPassword — confirmPassword is stripped by workspace */
   onChangePassword: (values: ChangePasswordFormValues) => Promise<void>;
   isPending: boolean;
-}
-
-function getDeviceIcon(deviceType?: string | null) {
-  const type = String(deviceType ?? "").toLowerCase();
-  if (type.includes("mobile") || type.includes("phone") || type.includes("móvil") || type.includes("movil") || type.includes("smartphone")) {
-    return Smartphone;
-  }
-  if (type.includes("tablet") || type.includes("ipad")) {
-    return Tablet;
-  }
-  if (type.includes("laptop") || type.includes("notebook")) {
-    return Laptop;
-  }
-  return Monitor;
 }
 
 function formatSessionDate(dateStr?: string | null) {
@@ -100,61 +112,13 @@ function formatSessionDate(dateStr?: string | null) {
   }
 }
 
-const cleanField = (val?: string | null) => {
-  if (!val) return null;
-  const trimmed = val.trim();
-  const lower = trimmed.toLowerCase();
-  if (
-    lower === "desconocido" ||
-    lower === "unknown" ||
-    lower === "sistema" ||
-    lower === "navegador" ||
-    lower === "null" ||
-    lower === "undefined" ||
-    /^[0-9a-fA-F-]{36}$/.test(trimmed)
-  ) {
-    return null;
-  }
-  return trimmed;
-};
-
-const buildDeviceName = (os?: string | null, browser?: string | null): string | null => {
-  const cleanOS = cleanField(os);
-  const cleanBrowser = cleanField(browser);
-  if (cleanOS && cleanBrowser) {
-    return `${cleanOS} · ${cleanBrowser}`;
-  }
-  return cleanOS || cleanBrowser || null;
-};
-
-const formatDeviceType = (deviceType?: string | null) => {
-  const type = cleanField(deviceType)?.toLowerCase();
-  if (!type) return "Dispositivo";
-  if (type.includes("mobile") || type.includes("phone") || type.includes("movil") || type.includes("móvil")) return "Móvil";
-  if (type.includes("tablet")) return "Tablet";
-  if (type.includes("laptop") || type.includes("notebook")) return "Laptop";
-  if (type.includes("desktop")) return "Desktop";
-  return cleanField(deviceType) ?? "Dispositivo";
-};
-
-const getLocationLabel = (session: ProfileSession) => {
-  return (
-    cleanField(session.location) ||
-    [cleanField(session.city), cleanField(session.country)].filter(Boolean).join(", ") ||
-    "Ubicación no disponible"
-  );
-};
-
 export function ProfileSecurityTab({ user, onChangePassword, isPending }: ProfileSecurityTabProps) {
   const queryClient = useQueryClient();
-  const { logout } = useSession();
-
   // Real values from backend — no hardcoded fallbacks
   const lastLogin = user.lastLoginAt
     ? new Date(user.lastLoginAt).toLocaleString("es-PE", { timeZone: "America/Lima" })
     : null;
 
-  const activeSessions = user.security?.active_sessions ?? null;
   const isEmailVerified = user.security?.email_verified ?? null; // three-state
   const passwordChangeRequired = user.security?.password_change_required ?? null;
   const failedLoginAttempts = user.security?.failed_login_attempts ?? null;
@@ -196,37 +160,119 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
     });
   };
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const total = sessions.length;
-    const current = sessions.filter((s) => s.isCurrent).length;
-    const trusted = sessions.filter((s) => s.isTrusted).length;
-    const untrusted = total - trusted;
-    return { total, current, trusted, untrusted };
+  // Group sessions by deviceId
+  const devices = useMemo(() => {
+    const groups: Record<string, ProfileSession[]> = {};
+    const legacyDevices: ProfileSession[] = [];
+
+    sessions.forEach((session) => {
+      const devId = session.deviceId;
+      if (!devId) {
+        legacyDevices.push(session);
+      } else {
+        if (!groups[devId]) {
+          groups[devId] = [];
+        }
+        groups[devId].push(session);
+      }
+    });
+
+    const list: GroupedDevice[] = [];
+
+    // Process grouped devices
+    Object.entries(groups).forEach(([devId, groupSessions]) => {
+      const currentSession = groupSessions.find((s) => s.isCurrent);
+      const representative = currentSession || groupSessions[0];
+
+      const isCurrent = groupSessions.some((s) => s.isCurrent);
+      const isTrusted = groupSessions.some((s) => s.isTrusted);
+      const canTrust = groupSessions.some((s) => s.canTrust);
+      
+      const trustAvailableSession = groupSessions.find((s) => s.trustAvailableAt);
+      const trustAvailableAt = trustAvailableSession ? trustAvailableSession.trustAvailableAt : null;
+
+      list.push({
+        deviceId: devId,
+        deviceName: getSafeDeviceName(representative),
+        deviceType: representative.deviceType || "unknown",
+        browser: getSafeBrowser(representative),
+        os: getSafeOs(representative),
+        isCurrent,
+        isTrusted,
+        canTrust,
+        trustAvailableAt,
+        isLegacy: groupSessions.every((s) => s.isLegacy),
+        sessions: groupSessions,
+      });
+    });
+
+    // Process legacy devices
+    legacyDevices.forEach((session) => {
+      list.push({
+        deviceId: null,
+        deviceName: getSafeDeviceName(session),
+        deviceType: session.deviceType || "unknown",
+        browser: getSafeBrowser(session),
+        os: getSafeOs(session),
+        isCurrent: session.isCurrent,
+        isTrusted: session.isTrusted,
+        canTrust: session.canTrust,
+        trustAvailableAt: session.trustAvailableAt,
+        isLegacy: true,
+        sessions: [session],
+      });
+    });
+
+    // Sort: Current device first, then trusted devices, then by most recent activity
+    return list.sort((a, b) => {
+      if (a.isCurrent && !b.isCurrent) return -1;
+      if (!a.isCurrent && b.isCurrent) return 1;
+      
+      if (a.isTrusted && !b.isTrusted) return -1;
+      if (!a.isTrusted && b.isTrusted) return 1;
+
+      const aMaxActivity = Math.max(...a.sessions.map((s) => s.lastActivityAt ? new Date(s.lastActivityAt).getTime() : 0));
+      const bMaxActivity = Math.max(...b.sessions.map((s) => s.lastActivityAt ? new Date(s.lastActivityAt).getTime() : 0));
+      return bMaxActivity - aMaxActivity;
+    });
   }, [sessions]);
 
-  // Filter sessions
-  const filteredSessions = useMemo(() => {
-    return sessions.filter((s) => {
-      if (activeTab === "trusted") return s.isTrusted;
-      if (activeTab === "untrusted") return !s.isTrusted;
-      if (activeTab === "current") return s.isCurrent;
+  // Calculate statistics from devices list
+  const stats = useMemo(() => {
+    const total = devices.length;
+    const current = devices.filter((d) => d.isCurrent).length;
+    const trusted = devices.filter((d) => d.isTrusted).length;
+    const untrusted = total - trusted;
+    return { total, current, trusted, untrusted };
+  }, [devices]);
+
+  // Filter devices
+  const filteredDevices = useMemo(() => {
+    return devices.filter((d) => {
+      if (activeTab === "trusted") return d.isTrusted;
+      if (activeTab === "untrusted") return !d.isTrusted;
+      if (activeTab === "current") return d.isCurrent;
       return true;
     });
-  }, [sessions, activeTab]);
+  }, [devices, activeTab]);
 
-  // Paginate sessions
+  // Paginate devices
   const ITEMS_PER_PAGE = 8;
-  const totalPages = Math.max(1, Math.ceil(filteredSessions.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredDevices.length / ITEMS_PER_PAGE));
   const currentPageGuarded = Math.min(currentPage, totalPages);
 
-  const paginatedSessions = useMemo(() => {
+  const paginatedDevices = useMemo(() => {
     const startIndex = (currentPageGuarded - 1) * ITEMS_PER_PAGE;
-    return filteredSessions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredSessions, currentPageGuarded]);
+    return filteredDevices.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredDevices, currentPageGuarded]);
 
   // Centralized session error handler
   const handleSessionError = (error: unknown, fallbackMessage: string, sessionTrustAvailableAt?: string | null) => {
+    if (error instanceof ApiClientError && error.status === 422) {
+      toast.error("Este dispositivo todavía no puede marcarse como confiable");
+      return;
+    }
+
     const code = getApiErrorCode(error);
     const details = getApiErrorDetails(error);
     const trustAvailableAt = details?.trustAvailableAt ?? details?.trust_available_at ?? sessionTrustAvailableAt;
@@ -253,13 +299,14 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
     onSuccess(_data, variables: string) {
       const session = sessions.find((s) => s.id === variables);
       if (session?.isCurrent) {
-        toast.success("Sesión actual cerrada. Redirigiendo...");
-        void logout();
+        toast.info("La sesión actual no se cierra desde este panel.");
+        void refetchSessions();
       } else {
         toast.success("Sesión cerrada correctamente.");
         queryClient.setQueryData<ProfileSession[]>(["profile-sessions"], (old) =>
           old ? old.filter((sessionItem) => sessionItem.id !== variables) : old,
         );
+        void refetchSessions();
         void queryClient.invalidateQueries({ queryKey: ["profile-sessions"] });
         void queryClient.invalidateQueries({ queryKey: ["profile", "current"] });
       }
@@ -281,6 +328,7 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
       queryClient.setQueryData<ProfileSession[]>(["profile-sessions"], (old) =>
         old ? old.filter((sessionItem) => sessionItem.isCurrent) : old,
       );
+      void refetchSessions();
       void queryClient.invalidateQueries({ queryKey: ["profile-sessions"] });
       void queryClient.invalidateQueries({ queryKey: ["profile", "current"] });
     },
@@ -293,6 +341,7 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
     mutationFn: trustSession,
     onSuccess() {
       toast.success("Sesión marcada como confiable.");
+      void refetchSessions();
       void queryClient.invalidateQueries({ queryKey: ["profile-sessions"] });
     },
     onError(error: unknown, variables: string) {
@@ -312,7 +361,7 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     formState: { errors },
   } = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(passwordSchema),
@@ -323,7 +372,7 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
     },
   });
 
-  const newPasswordValue = watch("newPassword", "");
+  const newPasswordValue = useWatch({ control, name: "newPassword" }) ?? "";
 
   const requirements = [
     { label: "Mínimo 8 caracteres", met: newPasswordValue.length >= 8 },
@@ -408,12 +457,21 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
           </form>
         </ProfileSectionCard>
 
-        {/* Sessions card */}
+        {/* ══════════════════════════════════════════════════════════════════════
+            Sessions card — REDESIGNED
+           ══════════════════════════════════════════════════════════════════════ */}
         <ProfileSectionCard
-          title="Dispositivos y Sesiones Activas"
-          description="Gestione los navegadores y dispositivos que tienen acceso a su cuenta."
+          title="Dispositivos y sesiones activas"
+          description="Administra los dispositivos donde tu cuenta tiene sesión iniciada."
           icon={<Monitor className="size-5" />}
           badge={
+            !isSessionsLoading && !isSessionsError && sessions.length > 0 ? (
+              <span className="text-xs font-bold text-muted-foreground bg-muted border border-border/60 px-2.5 py-1 rounded-full">
+                {devices.length} {devices.length === 1 ? "dispositivo" : "dispositivos"} ({sessions.length} {sessions.length === 1 ? "sesión" : "sesiones"})
+              </span>
+            ) : undefined
+          }
+          action={
             sessions.filter((s) => !s.isCurrent).length > 0 ? (
               <Button
                 variant="danger"
@@ -437,38 +495,44 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
         >
           {/* ── Statistics Summary Grid ── */}
           {!isSessionsLoading && !isSessionsError && sessions.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-              <div className="p-3 bg-muted/30 rounded-xl border border-border/40 text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                  Total Sesiones
-                </span>
-                <span className="text-lg font-bold text-foreground mt-1 block">
-                  {stats.total}
-                </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
+              <div className="flex items-center gap-2.5 p-3 bg-muted/40 rounded-xl border border-border/40">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                  <Monitor className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block leading-none">Total</span>
+                  <span className="text-base font-bold text-foreground block mt-0.5">{stats.total}</span>
+                </div>
               </div>
-              <div className="p-3 bg-muted/30 rounded-xl border border-border/40 text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                  Confiables
-                </span>
-                <span className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-1 block">
-                  {stats.trusted}
-                </span>
+              <div className="flex items-center gap-2.5 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <ShieldCheck className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block leading-none">Confiables</span>
+                  <span className="text-base font-bold text-emerald-600 dark:text-emerald-400 block mt-0.5">{stats.trusted}</span>
+                </div>
               </div>
-              <div className="p-3 bg-muted/30 rounded-xl border border-border/40 text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                  No Confiables
-                </span>
-                <span className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-1 block">
-                  {stats.untrusted}
-                </span>
+              <div className="flex items-center gap-2.5 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                  <ShieldAlert className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block leading-none">No confiables</span>
+                  <span className="text-base font-bold text-amber-600 dark:text-amber-400 block mt-0.5">{stats.untrusted}</span>
+                </div>
               </div>
-              <div className="p-3 bg-muted/30 rounded-xl border border-border/40 text-center flex flex-col justify-center items-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                  Dispositivo Actual
-                </span>
-                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1 block truncate max-w-full">
-                  Activo
-                </span>
+              <div className="flex items-center gap-2.5 p-3 bg-teal-500/5 rounded-xl border border-teal-500/10">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0">
+                  <Check className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block leading-none">Actual</span>
+                  <span className="text-sm font-bold text-teal-600 dark:text-teal-400 block mt-0.5 truncate">
+                    {stats.current > 0 ? "Activo" : "—"}
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -485,7 +549,7 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
                 };
                 const count =
                   tab === "all"
-                    ? sessions.length
+                    ? devices.length
                     : tab === "trusted"
                     ? stats.trusted
                     : tab === "untrusted"
@@ -510,7 +574,7 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
                     {tabLabels[tab]}
                     <span
                       className={cn(
-                        "inline-flex items-center justify-center px-1.5 py-0.2 text-[10px] rounded-full font-bold",
+                        "inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] rounded-full font-bold min-w-[18px]",
                         isActive
                           ? "bg-primary-foreground/20 text-primary-foreground"
                           : "bg-border text-muted-foreground"
@@ -526,187 +590,274 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
 
           {isSessionsLoading ? (
             <div className="flex flex-col gap-3 py-6">
-              <div className="h-14 w-full animate-pulse rounded-2xl bg-muted" />
-              <div className="h-14 w-full animate-pulse rounded-2xl bg-muted" />
+              <div className="h-32 w-full animate-pulse rounded-2xl bg-muted" />
+              <div className="h-32 w-full animate-pulse rounded-2xl bg-muted" />
             </div>
           ) : isSessionsError ? (
-            <div className="text-center py-6 text-sm text-destructive bg-destructive/5 border border-destructive/10 rounded-2xl">
-              No se pudieron cargar las sesiones activas.
-              <Button variant="ghost" onClick={() => refetchSessions()} className="ml-2 h-8 px-3 text-xs font-semibold rounded-xl">
+            <div className="flex flex-col items-center justify-center py-10 px-4 text-center rounded-2xl border border-border bg-card shadow-sm animate-[dashboard-rise_300ms_ease-out]">
+              <AppLottie
+                src={feedbackAnimations.error500}
+                className="h-28 w-28 mb-3"
+                ariaLabel="Error al cargar sesiones"
+              />
+              <h3 className="text-sm font-bold text-foreground">
+                Error al cargar las sesiones
+              </h3>
+              <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                Hubo un problema al contactar con el servidor. Por favor, vuelve a intentarlo.
+              </p>
+              <Button
+                variant="secondary"
+                onClick={() => refetchSessions()}
+                className="mt-4 h-8 px-4 text-xs rounded-xl border border-border hover:border-primary"
+              >
                 Reintentar
               </Button>
             </div>
-          ) : filteredSessions.length === 0 ? (
-            <div className="text-center py-8 text-sm text-muted-foreground bg-muted/30 border border-border/40 rounded-2xl">
-              {activeTab === "all"
-                ? "No hay sesiones activas registradas."
-                : "No hay sesiones que coincidan con este filtro."}
+          ) : filteredDevices.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 px-4 text-center rounded-2xl border border-border bg-card shadow-sm animate-[dashboard-rise_300ms_ease-out]">
+              <AppLottie
+                src={feedbackAnimations.empty}
+                className="h-28 w-28 mb-3"
+                ariaLabel="No hay dispositivos"
+              />
+              <h3 className="text-sm font-bold text-foreground">
+                No se encontraron dispositivos
+              </h3>
+              <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                {activeTab === "all"
+                  ? "No hay dispositivos o sesiones activas registradas en tu cuenta."
+                  : "No hay dispositivos que coincidan con el filtro seleccionado."}
+              </p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {/* Scrollable Container with Max Height */}
-              <div className="flex flex-col gap-3 max-h-[420px] overflow-y-auto pr-1">
-                {paginatedSessions.map((session) => {
-                  const backendBrowser = cleanField(session.browser);
-                  const backendOS = cleanField(session.os);
-                  const backendDeviceType = cleanField(session.deviceType);
-                  const shouldParseUserAgent = !backendBrowser || !backendOS || !backendDeviceType;
-                  const parsedFromUserAgent = shouldParseUserAgent ? parseDeviceInfo(session.userAgent) : null;
-
-                  const resolvedBrowser = backendBrowser ?? parsedFromUserAgent?.browser ?? null;
-                  const resolvedOS = backendOS ?? parsedFromUserAgent?.os ?? null;
-                  const resolvedDeviceType = backendDeviceType ?? parsedFromUserAgent?.deviceType ?? "unknown";
-                  const resolvedDeviceName =
-                    cleanField(session.deviceName) ??
-                    buildDeviceName(resolvedOS, resolvedBrowser) ??
-                    "Dispositivo no identificado";
-
-                  const DeviceIcon = getDeviceIcon(resolvedDeviceType);
-                  const isCurrent = session.isCurrent;
-                  const isTrusted = session.isTrusted;
-                  const canTrust = session.canTrust;
-                  const trustAvailableAt = session.trustAvailableAt;
-
-                  const deviceSummary = [formatDeviceType(resolvedDeviceType), resolvedOS, resolvedBrowser].filter(Boolean).join(" · ");
-                  const ip = cleanField(session.ipAddress) ?? "IP no disponible";
-                  const location = getLocationLabel(session);
-                  const lastActivity = session.lastActivityAt;
-                  const expiration = session.expiresAt;
+              {/* Device Cards */}
+              <div className="flex flex-col gap-4 max-h-[620px] overflow-y-auto pr-1">
+                {paginatedDevices.map((device, devIdx) => {
+                  const deviceLabel = device.deviceName;
+                  const DeviceIcon = getDeviceIcon(device.deviceType);
+                  const isCurrent = device.isCurrent;
+                  const isTrusted = device.isTrusted;
+                  const isLegacy = device.isLegacy;
                   
-                  // Truncate UUID for display
-                  const shortId = session.id ? `${session.id.slice(0, 8)}...${session.id.slice(-4)}` : "";
+                  // Find session for trust button action
+                  const trustSessionItem = device.sessions.find((s) => s.canTrust === true && !s.isTrusted);
+                  const canTrustDevice = device.canTrust && trustSessionItem;
+                  const trustAvailableAt = device.trustAvailableAt;
+
+                  const deviceSummary = `${device.browser} · ${device.os} · ${getDeviceTypeLabelEs(device.deviceType)}`;
 
                   return (
                     <div
-                      key={session.id}
+                      key={device.deviceId || `dev-idx-${devIdx}`}
                       className={cn(
-                        "flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border transition-all duration-200",
+                        "group flex flex-col gap-4 p-5 rounded-2xl border transition-all duration-200",
                         isCurrent
-                          ? "bg-primary/5 border-primary/20 shadow-sm"
-                          : "bg-card/40 border-border/50 hover:border-border hover:bg-card/75"
+                          ? "bg-teal-500/[0.03] border-teal-500/20 shadow-sm ring-1 ring-teal-500/10"
+                          : "bg-card border-border/50 hover:border-border hover:shadow-sm"
                       )}
                     >
-                      <div className="flex items-start gap-3.5 min-w-0">
-                        {/* Device Icon */}
-                        <div
-                          className={cn(
-                            "flex size-10 shrink-0 items-center justify-center rounded-xl border",
-                            isCurrent
-                              ? "bg-primary/10 border-primary/20 text-primary"
-                              : "bg-muted border-border text-muted-foreground"
-                          )}
-                        >
-                          <DeviceIcon className="size-5" />
-                        </div>
-
-                        {/* Session details */}
-                        <div className="min-w-0 grid gap-1">
-                          <div className="flex items-center flex-wrap gap-2">
-                            <h4 className="text-sm font-semibold text-foreground leading-tight">
-                              {resolvedDeviceName}
-                            </h4>
-                            {isCurrent && (
-                              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-500 border border-emerald-500/20">
-                                Sesión actual
-                              </span>
+                      {/* Top: Icon + Title + Badges + Actions */}
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-4 justify-between">
+                        <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                          {/* Device Icon — large */}
+                          <div
+                            className={cn(
+                              "flex size-12 shrink-0 items-center justify-center rounded-2xl border-2",
+                              isCurrent
+                                ? "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400"
+                                : isTrusted
+                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                : "bg-muted border-border text-muted-foreground"
                             )}
-                            {isTrusted ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-500 border border-blue-500/20">
-                                <ShieldCheck className="size-3" /> Confiable
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] font-bold text-muted-foreground border border-border">
-                                No confiable
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="text-xs text-muted-foreground">
-                            {deviceSummary}
-                          </p>
-
-                          {/* Metadata row */}
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                            {session.id && (
-                              <span 
-                                title={session.id} 
-                                className="cursor-help font-mono text-[11px] bg-muted/60 px-1.5 py-0.2 rounded border border-border/30"
-                              >
-                                ID: {shortId}
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1">
-                              IP: <strong className="text-foreground font-medium">{ip}</strong>
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="size-3 text-muted-foreground/60" />
-                              Ubicación: <strong className="text-foreground font-medium">{location}</strong>
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="size-3 text-muted-foreground/60" />
-                              Última actividad: <strong className="text-foreground font-medium">{formatSessionDate(lastActivity)}</strong>
-                            </span>
-                            <span className="text-[11px] text-muted-foreground/80">
-                              Expira: {formatSessionDate(expiration)}
-                            </span>
-                          </div>
-
-                          {/* Confiado desde (Secondary info) */}
-                          {isTrusted && session.trustedAt && (
-                            <p className="text-[11px] text-muted-foreground/80 flex items-center gap-1 mt-0.5 font-medium">
-                              <ShieldCheck className="size-3 text-blue-500" />
-                              Confiado desde: {formatSessionDate(session.trustedAt)}
-                            </p>
-                          )}
-
-                          {/* Help text for trust not met */}
-                          {!isTrusted && !canTrust && trustAvailableAt && (
-                            <p className="text-[11px] text-amber-600 dark:text-amber-500 flex items-center gap-1 mt-0.5 font-medium">
-                              <AlertTriangle className="size-3 shrink-0" />
-                              Disponible para confiar desde {formatSessionDate(trustAvailableAt)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center justify-end gap-2 self-end sm:self-center shrink-0">
-                        {/* Trust Button */}
-                        {!isTrusted && (
-                          <Button
-                            variant="secondary"
-                            disabled={!canTrust || isActionPending}
-                            onClick={() => trustMutation.mutate(session.id)}
-                            className="h-8 rounded-xl px-3 text-xs gap-1.5 animate-fade-in font-bold border-border/60 hover:border-primary"
                           >
-                            {trustMutation.isPending && <Loader2 className="size-3 animate-spin" />}
-                            <ShieldCheck className="size-3.5" />
-                            Confiar
-                          </Button>
-                        )}
+                            <DeviceIcon className="size-6" />
+                          </div>
 
-                        {/* Revoke Button */}
-                        <Button
-                          variant="ghost"
-                          disabled={isActionPending}
-                          onClick={() => {
-                            triggerConfirm({
-                              title: isCurrent ? "Cerrar tu sesión actual" : "Cerrar sesión activa",
-                              description: isCurrent
-                                ? "Estás a punto de cerrar tu sesión actual. Tendrás que volver a iniciar sesión para continuar. ¿Deseas continuar?"
-                                : `¿Estás seguro de que deseas cerrar la sesión activa de ${resolvedDeviceName}?`,
-                              confirmText: isCurrent ? "Cerrar y salir" : "Cerrar sesión",
-                              variant: "danger",
-                              onConfirm: () => revokeMutation.mutate(session.id),
-                            });
-                          }}
-                          className="size-8 rounded-xl p-0 text-destructive hover:bg-destructive/10 hover:text-destructive flex items-center justify-center transition-colors"
-                          aria-label="Cerrar sesión"
-                        >
-                          {revokeMutation.isPending && <Loader2 className="size-3 animate-spin" />}
-                          <Trash2 className="size-4" />
-                        </Button>
+                          {/* Device Info */}
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-sm font-bold text-card-foreground leading-snug truncate">
+                              {deviceLabel}
+                            </h4>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {deviceSummary}
+                            </p>
+
+                            {/* Badges row */}
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                              {isCurrent && (
+                                <Badge className="border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-400 hover:bg-teal-500/15 gap-1">
+                                  <Check className="size-3" />
+                                  Sesión actual
+                                </Badge>
+                              )}
+                              {isTrusted ? (
+                                <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 gap-1">
+                                  <ShieldCheck className="size-3" />
+                                  Dispositivo confiable
+                                </Badge>
+                              ) : (
+                                <Badge className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/15 gap-1">
+                                  <ShieldAlert className="size-3" />
+                                  No confiable
+                                </Badge>
+                              )}
+                              {isLegacy && (
+                                <Badge className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/15 gap-1">
+                                  Sesión antigua
+                                </Badge>
+                              )}
+                              {!canTrustDevice && !isTrusted && trustAvailableAt && (
+                                <Badge className="border-border bg-muted text-muted-foreground hover:bg-muted/80 gap-1">
+                                  <Clock className="size-3" />
+                                  Confianza no disponible
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions on Device Level */}
+                        <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                          {/* Trust Button */}
+                          {canTrustDevice && trustSessionItem && (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              disabled={isActionPending}
+                              onClick={() => {
+                                trustMutation.mutate(trustSessionItem.id);
+                              }}
+                              className={cn(
+                                "h-8 rounded-xl px-3 text-xs gap-1.5 font-bold border-border/60",
+                                "hover:border-emerald-500 hover:bg-emerald-500/5 hover:text-emerald-700 dark:hover:text-emerald-400"
+                              )}
+                            >
+                              {trustMutation.isPending && trustMutation.variables === trustSessionItem.id && (
+                                <Loader2 className="size-3 animate-spin" />
+                              )}
+                              <ShieldCheck className="size-3.5" />
+                              Confiar en este dispositivo
+                            </Button>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Display trustAvailableAt warning message if applicable */}
+                      {!isTrusted && !canTrustDevice && trustAvailableAt && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/5 px-3 py-2 rounded-lg border border-amber-500/10 sm:ml-[60px]">
+                          <Clock className="size-3 shrink-0" />
+                          <span>
+                            Confianza disponible a partir de: {formatTrustAvailableAt(trustAvailableAt)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Sessions List within Device */}
+                      <div className="flex flex-col gap-2 pl-0 sm:pl-[60px]">
+                        <span className="text-xs font-bold text-muted-foreground mb-1 block">
+                          Sesiones activas ({device.sessions.length}):
+                        </span>
+                        
+                        <div className="flex flex-col gap-2 border border-border/30 rounded-xl overflow-hidden bg-muted/20">
+                          {device.sessions.map((session) => {
+                            const ip = getSafeIp(session);
+                            const safeLocation = getSafeLocation(session);
+                            const location = safeLocation.toLowerCase().includes("desconoc")
+                              ? "Ubicación no disponible"
+                              : safeLocation;
+                            const lastActivity = getRelativeTimeLabel(session.lastActivityAt, "Sin actividad registrada");
+                            const expiration = formatDateTime(session.expiresAt, "Sin fecha de expiración");
+                            const isSessCurrent = session.isCurrent;
+
+                            return (
+                              <div
+                                key={session.id}
+                                className={cn(
+                                  "flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-2.5 border-b border-border/20 last:border-b-0",
+                                  isSessCurrent ? "bg-teal-500/[0.02]" : ""
+                                )}
+                              >
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1.5 flex-1 min-w-0 text-[11px]">
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    <Wifi className="size-3 text-muted-foreground shrink-0" />
+                                    <span className="text-muted-foreground shrink-0">IP:</span>
+                                    <span className="font-medium text-foreground truncate">{ip}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    <MapPin className="size-3 text-muted-foreground shrink-0" />
+                                    <span className="text-muted-foreground shrink-0">Ubicación:</span>
+                                    <span className="font-medium text-foreground truncate">{location}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    <Clock className="size-3 text-muted-foreground shrink-0" />
+                                    <span className="text-muted-foreground shrink-0">Última act.:</span>
+                                    <span className="font-medium text-foreground truncate">{lastActivity}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 truncate col-span-1 sm:col-span-2 lg:col-span-3">
+                                    <Clock className="size-3 text-muted-foreground shrink-0" />
+                                    <span className="text-muted-foreground shrink-0">Expira:</span>
+                                    <span className="font-medium text-foreground truncate">{expiration}</span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0 justify-end self-end sm:self-center">
+                                  {isSessCurrent ? (
+                                    <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-md border border-teal-500/20">
+                                      Actual
+                                    </span>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      disabled={isActionPending}
+                                      onClick={() => {
+                                        triggerConfirm({
+                                          title: "Cerrar sesión activa",
+                                          description: `¿Estás seguro de que deseas cerrar la sesión activa de ${deviceLabel} con IP ${ip}?`,
+                                          confirmText: "Cerrar sesión",
+                                          variant: "danger",
+                                          onConfirm: () => revokeMutation.mutate(session.id),
+                                        });
+                                      }}
+                                      className="size-7 rounded-lg p-0 text-destructive hover:bg-destructive/10 hover:text-destructive flex items-center justify-center transition-colors border border-border/20"
+                                      aria-label="Cerrar sesión"
+                                    >
+                                      {revokeMutation.isPending && revokeMutation.variables === session.id ? (
+                                        <Loader2 className="size-3 animate-spin" />
+                                      ) : (
+                                        <LogOut className="size-3" />
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Trusted details at Device level */}
+                      {isTrusted && (
+                        <div className="flex flex-col gap-1 pl-0 sm:pl-[60px] text-[10px] text-muted-foreground mt-1">
+                          {device.sessions.some((s) => s.trustedAt) && (
+                            <div className="flex items-center gap-1.5">
+                              <ShieldCheck className="size-3 text-emerald-500" />
+                              <span className="font-medium">
+                                Confiado desde: {formatDateTime(device.sessions.find((s) => s.trustedAt)?.trustedAt ?? null, "")}
+                              </span>
+                            </div>
+                          )}
+                          {device.sessions.some((s) => s.trustExpiresAt) && (
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="size-3 text-amber-500" />
+                              <span className="font-medium">
+                                Expiración de confianza: {formatDateTime(device.sessions.find((s) => s.trustExpiresAt)?.trustExpiresAt ?? null, "Sin fecha de expiración")}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -717,8 +868,8 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
                 <div className="flex items-center justify-between border-t border-border/40 pt-4 mt-2">
                   <span className="text-xs text-muted-foreground">
                     Mostrando del <strong>{((currentPageGuarded - 1) * ITEMS_PER_PAGE) + 1}</strong> al{" "}
-                    <strong>{Math.min(currentPageGuarded * ITEMS_PER_PAGE, filteredSessions.length)}</strong> de{" "}
-                    <strong>{filteredSessions.length}</strong> sesiones
+                    <strong>{Math.min(currentPageGuarded * ITEMS_PER_PAGE, filteredDevices.length)}</strong> de{" "}
+                    <strong>{filteredDevices.length}</strong> dispositivos
                   </span>
                   
                   <div className="flex items-center gap-1.5">
@@ -753,7 +904,9 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
         </ProfileSectionCard>
       </div>
 
-      {/* Right column: security metadata */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          Right column: Seguridad de Acceso — REDESIGNED
+         ══════════════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col gap-6 w-full">
         <ProfileSectionCard
           title="Seguridad de Acceso"
@@ -770,8 +923,8 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
                 <span
                   className={`font-bold text-xs px-2.5 py-0.5 rounded-full ${
                     isEmailVerified
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border border-emerald-500/20"
-                      : "bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                   }`}
                 >
                   {isEmailVerified ? "Verificado" : "Pendiente"}
@@ -797,14 +950,60 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
               )}
             </div>
 
-            {/* Active sessions */}
-            <div className="flex items-center justify-between py-1 border-t border-border/30">
-              <span className="text-muted-foreground font-semibold">Sesiones Activas</span>
-              {activeSessions === null ? (
-                <span className="text-xs text-muted-foreground/60 italic">No registrado</span>
-              ) : (
-                <span className="font-bold text-foreground">
-                  {activeSessions} {activeSessions === 1 ? "dispositivo" : "dispositivos"}
+            {/* Active sessions — from real sessions array */}
+            <div className="flex flex-col gap-2.5 py-2 border-t border-border/30">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground font-semibold">Dispositivos activos</span>
+                {isSessionsLoading ? (
+                  <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                ) : (
+                  <span className="font-bold text-foreground">
+                    {devices.length} {devices.length === 1 ? "dispositivo" : "dispositivos"}
+                  </span>
+                )}
+              </div>
+
+              {/* Mini device list */}
+              {!isSessionsLoading && devices.length > 0 && (
+                <div className="flex flex-col gap-1.5 mt-0.5">
+                  {devices.slice(0, 2).map((d, index) => {
+                    const miniDeviceName = d.deviceName;
+                    const miniBrowser = d.browser;
+                    const miniOs = d.os;
+                    const MiniIcon = getDeviceIcon(d.deviceType);
+                    return (
+                      <div key={d.deviceId || index} className="flex items-center gap-2.5 p-2 bg-muted/40 rounded-lg border border-border/30">
+                        <div
+                          className={cn(
+                            "flex size-7 items-center justify-center rounded-lg shrink-0",
+                            d.isCurrent
+                              ? "bg-teal-500/10 text-teal-600 dark:text-teal-400"
+                              : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          <MiniIcon className="size-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-xs font-bold text-card-foreground block truncate leading-tight">
+                            {miniDeviceName}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground block truncate leading-tight">
+                            {miniBrowser} · {miniOs}{d.isCurrent ? " · Actual" : ""}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {devices.length > 2 && (
+                    <span className="text-[10px] text-muted-foreground font-medium pl-1">
+                      + {devices.length - 2} {devices.length - 2 === 1 ? "dispositivo más" : "dispositivos más"}
+                    </span>
+                  )}
+                </div>
+              )}
+              {!isSessionsLoading && devices.length === 0 && (
+                <span className="text-[11px] text-muted-foreground/60 italic">
+                  No hay dispositivos activos registrados
                 </span>
               )}
             </div>
@@ -818,7 +1017,7 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
                 <span
                   className={`font-bold text-xs px-2.5 py-0.5 rounded-full ${
                     failedLoginAttempts > 0
-                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20"
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                       : "bg-muted text-muted-foreground border border-border"
                   }`}
                 >
@@ -843,14 +1042,27 @@ export function ProfileSecurityTab({ user, onChangePassword, isPending }: Profil
               </span>
             </div>
 
-            {/* Current device card (clean design) */}
-            <div className="p-3.5 bg-primary/5 border border-primary/10 rounded-xl flex items-start gap-2.5 mt-2">
-              <Monitor className="size-4.5 text-primary shrink-0 mt-0.5" />
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-bold text-foreground">Dispositivo Actual</span>
-                <span className="text-[11px] text-muted-foreground">Sesión web de administración activa</span>
-              </div>
-            </div>
+            {/* Current device card — uses real session data */}
+            {(() => {
+              const currentSession = sessions.find((s) => s.isCurrent);
+              if (!currentSession) return null;
+              const currentDeviceName = getSafeDeviceName(currentSession);
+              const currentBrowser = getSafeBrowser(currentSession);
+              const currentOs = getSafeOs(currentSession);
+              return (
+                <div className="p-3.5 bg-teal-500/5 border border-teal-500/10 rounded-xl flex items-start gap-2.5 mt-2">
+                  <div className="flex size-9 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0">
+                    <Monitor className="size-4" />
+                  </div>
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-xs font-bold text-card-foreground truncate">{currentDeviceName}</span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {currentBrowser} · {currentOs} · Sesión actual
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </ProfileSectionCard>
 

@@ -1,15 +1,36 @@
-import { apiClient } from "@/lib/api/client";
+import { apiClient, ApiClientError } from "@/lib/api/client";
 import { normalizeBirthdayWorker, normalizeCurrentUserProfile } from "@/lib/api/normalizers";
 import { getCurrentProfile } from "@/services/profile.service";
 import type { BirthdayWorker } from "@/types";
 
 type LooseRecord = Record<string, unknown>;
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Reintenta una llamada cuando el backend responde 429 (rate limit). El
+ * dashboard dispara varios endpoints a la vez y el límite de peticiones puede
+ * rechazar algunos en ráfaga; reintentar con backoff evita que la tabla de
+ * asistencia y los KPIs queden vacíos por un 429 transitorio.
+ */
+async function withRetry<T>(factory: () => Promise<T>, retries = 3): Promise<T> {
+ let attempt = 0;
+ for (;;) {
+  try {
+   return await factory();
+  } catch (error) {
+   const isRateLimited = error instanceof ApiClientError && error.status === 429;
+   if (!isRateLimited || attempt >= retries) throw error;
+   await sleep(Math.min(600 * 2 ** attempt, 4000));
+   attempt += 1;
+  }
+ }
+}
+
 const asRecord = (value: unknown): LooseRecord | null =>
  value && typeof value === "object" ? (value as LooseRecord) : null;
 
 const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
-const asString = (value: unknown) => (typeof value === "string" ? value : "");
 
 export interface DashboardUser {
  firstName: string;
@@ -67,6 +88,8 @@ export interface WorkerStatus {
  checkOut: string | null;
  status: string;
  lateMinutes: number;
+ overtimeMinutes?: number;
+ avatarUrl?: string;
 }
 
 export interface DailyStatusListResponse {
@@ -79,15 +102,107 @@ export interface DailyStatusListResponse {
 export interface AdminAttendanceDashboard {
  user: DashboardUser;
  summary: {
- activeWorkers: number;
- totalRecords: number;
- totalLate: number;
- fakeGpsAlerts: number;
+  activeWorkers: number;
+  totalRecords: number;
+  totalLate: number;
+  fakeGpsAlerts: number;
  };
  alerts: DashboardAlert[];
  weeklyChart: WeeklyChartItem[];
  dailyStatusList: WorkerStatus[];
  birthdays: BirthdayWorker[];
+ _partialFailure?: boolean;
+}
+
+interface RawWorkerStatus {
+  attendanceId?: string;
+  attendance_id?: string;
+  workerId?: string;
+  worker_id?: string;
+  workerName?: string;
+  worker_name?: string;
+  worker?: {
+    fullName?: string;
+    profilePhotoUrl?: string;
+  };
+  projectName?: string;
+  project_name?: string;
+  workLocationName?: string;
+  work_location_name?: string;
+  checkIn?: string | null;
+  check_in?: string | null;
+  checkOut?: string | null;
+  check_out?: string | null;
+  status?: string;
+  lateMinutes?: number;
+  late_minutes?: number;
+  overtimeMinutes?: number;
+  overtime_minutes?: number;
+  approvedOvertimeMinutes?: number;
+  approved_overtime_minutes?: number;
+  maxOvertimeMinutes?: number;
+  max_overtime_minutes?: number;
+  avatarUrl?: string;
+  avatar_url?: string;
+  profilePhotoUrl?: string;
+  profile_photo_url?: string;
+  attendance?: {
+    id?: string;
+    check_in?: string | null;
+    checkIn?: string | null;
+    check_out?: string | null;
+    checkOut?: string | null;
+    late_minutes?: number;
+    lateMinutes?: number;
+    workLocation?: string;
+    overtime_minutes?: number;
+    overtimeMinutes?: number;
+  };
+  shift?: {
+    name?: string;
+  };
+  positionName?: string;
+}
+
+function normalizeWorkerStatus(w: RawWorkerStatus | null | undefined): WorkerStatus {
+  if (!w || typeof w !== "object") {
+    return {
+      attendanceId: "",
+      workerId: "",
+      workerName: "Desconocido",
+      projectName: "",
+      checkIn: null,
+      checkOut: null,
+      status: "unknown",
+      lateMinutes: 0,
+      overtimeMinutes: 0,
+      avatarUrl: "",
+    };
+  }
+
+  let status = String(w.status ?? "unknown").toLowerCase().replace(/_/g, "-");
+  if (status === "presente") status = "present";
+  if (status === "tardanza" || status === "tardy") status = "late";
+  if (status === "falta" || status === "ausente") status = "absent";
+  if (status === "pending-checkout" || status === "pending_checkout") status = "pending-checkout";
+  if (status === "completed" || status === "completado") status = "completed";
+
+  const checkIn = w.checkIn ?? w.check_in ?? w.attendance?.check_in ?? w.attendance?.checkIn ?? null;
+  const checkOut = w.checkOut ?? w.check_out ?? w.attendance?.check_out ?? w.attendance?.checkOut ?? null;
+  const projectName = w.projectName ?? w.project_name ?? w.workLocationName ?? w.work_location_name ?? w.attendance?.workLocation ?? w.shift?.name ?? w.positionName ?? "";
+
+  return {
+    attendanceId: w.attendanceId ?? w.attendance_id ?? w.attendance?.id ?? "",
+    workerId: w.workerId ?? w.worker_id ?? "",
+    workerName: w.workerName ?? w.worker_name ?? w.worker?.fullName ?? "Desconocido",
+    projectName,
+    checkIn,
+    checkOut,
+    status,
+    lateMinutes: Number(w.lateMinutes ?? w.late_minutes ?? w.attendance?.late_minutes ?? w.attendance?.lateMinutes ?? 0),
+    overtimeMinutes: Number(w.overtimeMinutes ?? w.overtime_minutes ?? w.attendance?.overtime_minutes ?? w.attendance?.overtimeMinutes ?? w.approvedOvertimeMinutes ?? w.approved_overtime_minutes ?? w.maxOvertimeMinutes ?? w.max_overtime_minutes ?? 0),
+    avatarUrl: w.avatarUrl ?? w.avatar_url ?? w.profilePhotoUrl ?? w.profile_photo_url ?? w.worker?.profilePhotoUrl ?? "",
+  };
 }
 
 export const dashboardService = {
@@ -98,24 +213,33 @@ export const dashboardService = {
  });
  },
 
- async getAdminAttendanceDashboard(): Promise<AdminAttendanceDashboard> {
- const [
- userRes,
- summaryRes,
- attendanceTodayRes,
- alertsRes,
- weeklyChartRes,
- dailyStatusListRes,
- birthdaysRes,
- ] = await Promise.all([
- getCurrentProfile(),
- apiClient<DashboardSummaryResponse>("/api/dashboard/summary"),
- apiClient<AttendanceTodayResponse>("/api/dashboard/attendance-today"),
- apiClient<DashboardAlertsResponse>("/api/dashboard/alerts").catch(() => null),
- apiClient<WeeklyChartResponse>("/api/dashboard/weekly-chart"),
- apiClient<DailyStatusListResponse>("/api/dashboard/daily-status-list?page=1&limit=10"),
- apiClient<unknown>("/api/birthdays/all").catch(() => null),
- ]);
+  async getAdminAttendanceDashboard(): Promise<AdminAttendanceDashboard> {
+    const todayStr = (() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })();
+
+    const results = await Promise.allSettled([
+      withRetry(() => getCurrentProfile()),
+      withRetry(() => apiClient<DashboardSummaryResponse>("/api/dashboard/summary")),
+      withRetry(() => apiClient<AttendanceTodayResponse>("/api/dashboard/attendance-today")),
+      withRetry(() => apiClient<DashboardAlertsResponse>("/api/dashboard/alerts")),
+      withRetry(() => apiClient<WeeklyChartResponse>("/api/dashboard/weekly-chart")),
+      withRetry(() =>
+        apiClient<any>(`/api/schedule/attendance-summary?start_date=${todayStr}&end_date=${todayStr}`)
+          .catch(() => apiClient<any>("/api/dashboard/daily-status-list?page=1&limit=10"))
+      ),
+      withRetry(() => apiClient<unknown>("/api/birthdays/all")),
+    ]);
+
+ const userRes = results[0].status === "fulfilled" ? results[0].value : null;
+ const summaryRes = results[1].status === "fulfilled" ? results[1].value : null;
+ const attendanceTodayRes = results[2].status === "fulfilled" ? results[2].value : null;
+ const alertsRes = results[3].status === "fulfilled" ? results[3].value : null;
+
+ const weeklyChartRes = results[4].status === "fulfilled" ? results[4].value : null;
+ const dailyStatusListRes = results[5].status === "fulfilled" ? results[5].value : null;
+ const birthdaysRes = results[6].status === "fulfilled" ? results[6].value : null;
 
  const weeklyChartPayload = asRecord(weeklyChartRes)?.data;
  const chartData = Array.isArray(weeklyChartRes?.data)
@@ -126,14 +250,32 @@ export const dashboardService = {
  ? asArray<WeeklyChartItem>(weeklyChartRes)
  : [];
 
- const dailyStatusPayload = asRecord(dailyStatusListRes)?.data;
- const workersData = Array.isArray(asRecord(dailyStatusPayload)?.workers)
- ? asArray<WorkerStatus>(asRecord(dailyStatusPayload)?.workers)
- : Array.isArray(dailyStatusListRes?.data)
- ? asArray<WorkerStatus>(dailyStatusListRes.data)
- : Array.isArray(dailyStatusListRes)
- ? asArray<WorkerStatus>(dailyStatusListRes)
- : [];
+  const getWorkersArray = (val: unknown): RawWorkerStatus[] => {
+    if (!val || typeof val !== "object") return [];
+    if (Array.isArray(val)) return val as RawWorkerStatus[];
+    
+    const rec = val as Record<string, unknown>;
+    if (rec.data && typeof rec.data === "object") {
+      const dataRec = rec.data as Record<string, unknown>;
+      if (Array.isArray(dataRec.workers)) return dataRec.workers as RawWorkerStatus[];
+      if (Array.isArray(dataRec.items)) return dataRec.items as RawWorkerStatus[];
+      if (Array.isArray(dataRec.data)) return dataRec.data as RawWorkerStatus[];
+      if (Array.isArray(dataRec)) return dataRec as RawWorkerStatus[];
+    }
+    
+    if (Array.isArray(rec.workers)) return rec.workers as RawWorkerStatus[];
+    if (Array.isArray(rec.items)) return rec.items as RawWorkerStatus[];
+    
+    for (const key of Object.keys(rec)) {
+      if (Array.isArray(rec[key])) {
+        return rec[key] as RawWorkerStatus[];
+      }
+    }
+    return [];
+  };
+
+  const rawWorkers = getWorkersArray(dailyStatusListRes);
+  const workersData = rawWorkers.map(normalizeWorkerStatus);
 
  const alertsPayload = asRecord(alertsRes)?.data;
  const apiAlerts = Array.isArray(alertsRes?.data?.alerts)
@@ -171,28 +313,31 @@ export const dashboardService = {
 
  const normalizedUser = normalizeCurrentUserProfile(userRes);
  const [firstName = "", ...lastNameParts] = normalizedUser.fullName
- .split(" ")
- .filter(Boolean);
+  .split(" ")
+  .filter(Boolean);
  const lastName = lastNameParts.join(" ");
  const dashboardUser: DashboardUser = {
- firstName,
- lastName,
- fullName: normalizedUser.fullName,
- role: normalizedUser.role !== "unknown" ? normalizedUser.role : "",
+  firstName,
+  lastName,
+  fullName: normalizedUser.fullName,
+  role: normalizedUser.role !== "unknown" ? normalizedUser.role : "",
  };
 
+ const hasPartialFailure = results.some((r) => r.status === "rejected");
+
  return {
- user: dashboardUser,
- summary: {
- activeWorkers: summaryRes.data?.activeWorkers ?? 0,
- totalRecords: attendanceTodayRes.data?.totalRecords ?? 0,
- totalLate: attendanceTodayRes.data?.totalLate ?? 0,
- fakeGpsAlerts: attendanceTodayRes.data?.fakeGpsAlerts ?? 0,
- },
- alerts: [...generatedAlerts, ...filteredApiAlerts],
- weeklyChart: chartData,
- dailyStatusList: workersData,
- birthdays,
+  user: dashboardUser,
+  summary: {
+  activeWorkers: summaryRes?.data?.activeWorkers ?? 0,
+  totalRecords: attendanceTodayRes?.data?.totalRecords ?? 0,
+  totalLate: attendanceTodayRes?.data?.totalLate ?? 0,
+  fakeGpsAlerts: attendanceTodayRes?.data?.fakeGpsAlerts ?? 0,
+  },
+  alerts: [...generatedAlerts, ...filteredApiAlerts],
+  weeklyChart: chartData,
+  dailyStatusList: workersData,
+  birthdays,
+  ...(hasPartialFailure ? { _partialFailure: true } : {}),
  };
  },
 };

@@ -55,19 +55,24 @@ export function formatRole(role: UserRole) {
 }
 
 export function formatStatusLabel(status: RequestStatus | DocumentStatus | WorkerStatus) {
- return {
- draft: "Borrador",
- pending: "Pendiente",
- approved: "Aprobado",
- observed: "Observado",
- rejected: "Rechazado",
- cancelled: "Cancelado",
- available: "Disponible",
- missing: "Faltante",
- expired: "Vencido",
- active: "Activo",
- inactive: "Inactivo",
- "on-leave": "Licencia",
- unknown: "No informado",
- }[status] ?? status;
+  return {
+    draft: "Borrador",
+    pending: "Pendiente",
+    pending_supervisor: "Pendiente Supervisor",
+    pending_rrhh: "Pendiente RRHH",
+    approved: "Aprobado",
+    observed: "Observado",
+    rejected: "Rechazado",
+    cancelled: "Cancelado",
+    available: "Disponible",
+    missing: "Falta cargar",
+    expired: "Expirada",
+    resubmitted: "Reenviada",
+    active: "Activo",
+    inactive: "Inactivo",
+    "on-leave": "Licencia",
+    generated: "Generado",
+    signed: "Firmado",
+    unknown: "No informado",
+  }[status] ?? status;
 }

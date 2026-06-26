@@ -2,6 +2,7 @@
 
 import { ApiClientError, apiClient } from "@/lib/api/client";
 import { webApiEndpoints } from "@/lib/api/endpoints";
+import { withGlobalLoading } from "@/store/loading-store";
 import type {
  ChartConfig,
  ReportExportFormat,
@@ -54,6 +55,7 @@ function resolveDownloadFilename(response: Response, fallback: string) {
 }
 
 async function downloadBlob(endpoint: string, payload: ReportRequestPayload, fallbackName: string) {
+ return withGlobalLoading(async () => {
  const response = await fetch(endpoint, {
  method: "POST",
  credentials: "same-origin",
@@ -82,6 +84,11 @@ async function downloadBlob(endpoint: string, payload: ReportRequestPayload, fal
  anchor.click();
  anchor.remove();
  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+ }, {
+ message: "Generando reporte...",
+ description: "Procesando informacion y preparando el archivo.",
+ variant: "processing",
+ });
 }
 
 export const reportsApi = {
@@ -89,10 +96,16 @@ export const reportsApi = {
  apiClient<ReportSummaryResponse>(webApiEndpoints.requests.reportSummary, {
  method: "POST",
  body: { filters },
+ loaderMessage: "Cargando resumen de reportes...",
+ loaderDescription: "Procesando indicadores con los filtros seleccionados.",
+ loaderVariant: "processing",
  }),
  getCharts: (filters: ReportFilters, chartConfig: ChartConfig) =>
  apiClient<ReportChartResponse>(webApiEndpoints.requests.reportCharts, {
  method: "POST",
+ loaderMessage: "Actualizando graficos...",
+ loaderDescription: "Procesando datos analiticos del reporte.",
+ loaderVariant: "processing",
  body: {
  filters,
  ...chartConfig,
@@ -102,6 +115,9 @@ export const reportsApi = {
  apiClient<ReportPreviewResponse>(webApiEndpoints.requests.reportPreview, {
  method: "POST",
  body: payload,
+ loaderMessage: "Generando vista previa...",
+ loaderDescription: "Aplicando filtros y columnas seleccionadas.",
+ loaderVariant: "processing",
  }),
  export: (format: ReportExportFormat, payload: ReportRequestPayload) =>
  downloadBlob(

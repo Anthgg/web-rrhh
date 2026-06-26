@@ -25,14 +25,17 @@ import type {
 } from "@/types/requests";
 
 export const requestStatusLabels: Record<RequestStatus, string> = {
- draft: "Borrador",
- pending: "Pendiente",
- approved: "Aprobado",
- observed: "Observado",
- rejected: "Rechazado",
- cancelled: "Cancelada",
- resubmitted: "Reenviada",
- unknown: "No definida",
+  draft: "Borrador",
+  pending: "Pendiente",
+  pending_supervisor: "Pendiente Supervisor",
+  pending_rrhh: "Pendiente RRHH",
+  observed: "Observado",
+  approved: "Aprobado",
+  rejected: "Rechazado",
+  cancelled: "Cancelada",
+  expired: "Expirada",
+  resubmitted: "Reenviada",
+  unknown: "No definida",
 };
 
 export const requestReviewDecisionLabels: Record<RequestReviewDecision, string> = {
@@ -58,13 +61,16 @@ export const requestDatePresetLabels: Record<RequestDatePreset, string> = {
 };
 
 export const requestStatusOptions: Array<{ value: RequestStatus | "all"; label: string }> = [
- { value: "all", label: "Todas" },
- { value: "pending", label: "Pendientes" },
- { value: "approved", label: "Aprobadas" },
- { value: "rejected", label: "Rechazadas" },
- { value: "observed", label: "Observadas" },
- { value: "cancelled", label: "Canceladas" },
- { value: "resubmitted", label: "Reenviadas" },
+  { value: "all", label: "Todas" },
+  { value: "draft", label: "Borrador" },
+  { value: "pending", label: "Pendientes" },
+  { value: "pending_supervisor", label: "Pendiente Supervisor" },
+  { value: "pending_rrhh", label: "Pendiente RRHH" },
+  { value: "observed", label: "Observadas" },
+  { value: "approved", label: "Aprobadas" },
+  { value: "rejected", label: "Rechazadas" },
+  { value: "cancelled", label: "Canceladas" },
+  { value: "expired", label: "Expiradas" },
 ];
 
 export const requestPageSizeOptions = [10, 20, 50] as const;
@@ -242,4 +248,47 @@ export function applyRequestClientFilters(items: RequestItem[], filters: Request
  });
 
  return sortRequestItems(filtered, filters.sortBy);
+}
+
+export function formatRequestDateStr(dateStr?: string): string {
+  if (!dateStr) return "";
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+  return dateStr;
+}
+
+export function getRequestDisplayStartDate(request: any): string {
+  if (!request) return "Sin fecha";
+  if (request.startDisplayDate) {
+    return request.startDisplayDate;
+  }
+  const fallback = request.startCalendarDate || request.startDateKey || request.startDate || request.start_date;
+  if (fallback) {
+    return formatRequestDateStr(fallback);
+  }
+  return "Sin fecha";
+}
+
+export function getRequestDisplayEndDate(request: any): string {
+  if (!request) return "";
+  if (request.endDisplayDate) {
+    return request.endDisplayDate;
+  }
+  const fallback = request.endCalendarDate || request.endDateKey || request.endDate || request.end_date;
+  if (fallback) {
+    return formatRequestDateStr(fallback);
+  }
+  return "";
+}
+
+export function getRequestDisplayDateRange(request: any): string {
+  if (!request) return "No definido";
+  const start = getRequestDisplayStartDate(request);
+  const end = getRequestDisplayEndDate(request);
+  if (start === "Sin fecha" && !end) return "No definido";
+  if (start && !end) return start;
+  if (!start && end) return end;
+  return `${start} - ${end}`;
 }

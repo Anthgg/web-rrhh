@@ -31,6 +31,8 @@ const normalizeDocument = (source: unknown): WorkerGeneratedDocument => {
  generatedBy: String(record.generated_by_name ?? record.generated_by ?? record.created_by_name ?? "Sistema"),
  url: typeof record.url === "string" ? record.url : typeof record.file_url === "string" ? record.file_url : undefined,
  fileName: typeof record.file_name === "string" ? record.file_name : undefined,
+ contractCode: typeof record.contract_code === "string" ? record.contract_code : typeof record.contractCode === "string" ? record.contractCode : undefined,
+ contract_code: typeof record.contract_code === "string" ? record.contract_code : typeof record.contractCode === "string" ? record.contractCode : undefined,
  };
 };
 

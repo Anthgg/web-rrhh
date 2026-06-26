@@ -50,15 +50,19 @@ export interface CompanySettingsResponse {
 export type LoadableStatus = "idle" | "loading" | "authenticated" | "unauthenticated";
 
 export type RequestStatus =
- | "draft"
- | "pending"
- | "approved"
- | "observed"
- | "rejected"
- | "cancelled"
- | "unknown";
+  | "draft"
+  | "pending"
+  | "pending_supervisor"
+  | "pending_rrhh"
+  | "observed"
+  | "approved"
+  | "rejected"
+  | "cancelled"
+  | "expired"
+  | "resubmitted"
+  | "unknown";
 
-export type DocumentStatus = "available" | "missing" | "expired" | "pending" | "unknown";
+export type DocumentStatus = "missing" | "pending" | "approved" | "rejected" | "observed" | "generated" | "signed" | "expired" | "available" | "unknown";
 
 export type WorkerStatus = "active" | "inactive" | "on-leave" | "unknown";
 
@@ -200,6 +204,8 @@ export interface WorkerGeneratedDocument {
  generatedBy: string;
  url?: string;
  fileName?: string;
+ contractCode?: string;
+ contract_code?: string;
 }
 
 export interface UserUpdatePayload {
@@ -338,12 +344,13 @@ export interface AdminAttendanceDashboard {
 }
 
 export interface RequestRecord {
- id: string;
- type: string;
- title: string;
- description: string;
- status: RequestStatus;
- requestedBy: string;
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  status: RequestStatus;
+  statusLabel?: string;
+  requestedBy: string;
  requesterId: string;
  project?: string;
  createdAt: string;
@@ -377,21 +384,42 @@ export interface ReviewRequestInput {
 }
 
 export interface DocumentRecord {
- id: string;
- title: string;
- category: string;
- ownerName: string;
- project?: string;
- status: DocumentStatus;
- updatedAt: string;
- url?: string;
+  id: string;
+  workerId?: string;
+  workerName?: string;
+  type?: string;
+  documentType?: string;
+  title: string;
+  status: DocumentStatus;
+  fileName?: string | null;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+  fileUrl?: string | null;
+  uploadedAt?: string | null;
+  reviewedAt?: string | null;
+  reviewComment?: string | null;
+  canDelete?: boolean;
+  canReplace?: boolean;
+  category?: string;
+  ownerName?: string;
+  project?: string;
+  updatedAt?: string;
+  url?: string;
+  contractCode?: string;
+  contract_code?: string;
 }
 
 export interface DocumentFilters {
- search?: string;
- status?: string;
- page?: number;
- pageSize?: number;
+  search?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+  type?: string;
+  documentType?: string;
+  document_type?: string;
+  workerId?: string;
+  worker_id?: string;
 }
 
 export interface WorkerRecord {
@@ -448,6 +476,7 @@ export interface WorkerFilters {
  project?: string;
  page?: number;
  pageSize?: number;
+ limit?: number;
 }
 
 export interface UserFilters {
@@ -623,24 +652,29 @@ export interface CreateTemporaryAssignmentPayload {
 export type ProfileSession = {
   id: string;
   userId: string;
-  userAgent?: string | null;
-  ipAddress?: string | null;
-  location?: string | null;
-  country?: string | null;
-  city?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  browser?: string | null;
-  os?: string | null;
-  deviceType?: string | null;
-  deviceName?: string | null;
+  userAgent: string | null;
+  ipAddress: string | null;
+  location: string | null;
+  country: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  browser: string | null;
+  os: string | null;
+  deviceType: "desktop" | "laptop" | "mobile" | "tablet" | "unknown" | null;
+  deviceName: string | null;
   isTrusted: boolean;
-  trustedAt?: string | null;
-  trustAvailableAt?: string | null;
-  lastActivityAt?: string | null;
-  expiresAt?: string | null;
+  trustedAt: string | null;
+  createdAt: string | null;
+  lastActivityAt: string | null;
+  expiresAt: string | null;
   isCurrent: boolean;
   canTrust: boolean;
+  trustAvailableAt: string | null;
+  revokedAt: string | null;
+  isLegacy: boolean;
+  trustExpiresAt: string | null;
+  deviceId: string | null;
 };
 
 export interface UserSession extends Partial<ProfileSession> {

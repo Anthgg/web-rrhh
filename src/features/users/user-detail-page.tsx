@@ -1023,7 +1023,16 @@ function ReportsTab({
  <tbody className="divide-y divide-border">
  {documents.map((document) => (
  <tr key={document.id}>
- <td className="px-4 py-3 font-medium text-foreground">{document.name}</td>
+ <td className="px-4 py-3 font-medium text-foreground">
+   <div className="flex flex-col gap-0.5">
+     <span>{document.name}</span>
+     {(document.contractCode || document.contract_code) && (
+       <span className="text-xs text-foreground-soft font-normal">
+         Código: {document.contractCode || document.contract_code}
+       </span>
+     )}
+   </div>
+ </td>
  <td className="px-4 py-3 text-foreground-soft">{translateBackendValue(document.type, documentTypeLabels)}</td>
  <td className="px-4 py-3 text-foreground-soft">{formatDateTime(document.generatedAt)}</td>
  <td className="px-4 py-3 text-foreground-soft">{humanizeBackendValue(document.generatedBy)}</td>

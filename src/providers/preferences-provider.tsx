@@ -51,10 +51,22 @@ function isAllowedValue<K extends keyof VisualPreferences>(
  return typeof value === "string" && (allowedValues[key] as readonly string[]).includes(value);
 }
 
+function unwrapServerResponse(raw: unknown): Record<string, unknown> | null {
+ if (!raw || typeof raw !== "object") return null;
+ const obj = raw as Record<string, unknown>;
+ if (obj.data && typeof obj.data === "object" && "data" in (obj.data as Record<string, unknown>)) {
+  return (obj.data as Record<string, unknown>).data as Record<string, unknown>;
+ }
+ if (obj.data && typeof obj.data === "object") {
+  return obj.data as Record<string, unknown>;
+ }
+ if (isRecord(raw)) return raw;
+ return null;
+}
+
 function normalizePreferences(source: unknown) {
- const record = isRecord(source) ? source : null;
- const data = isRecord(record?.data) ? record.data : record;
- const preferences = isRecord(data?.preferences) ? data.preferences : data;
+ const unwrapped = unwrapServerResponse(source);
+ const preferences = unwrapped;
 
  if (!preferences) return null;
 
@@ -63,15 +75,15 @@ function normalizePreferences(source: unknown) {
  const rawAccentColor = preferences.accentColor ?? preferences.accent_color;
 
  if (rawTheme === undefined && rawDensity === undefined && rawAccentColor === undefined) {
- return null;
+  return null;
  }
 
  return {
- theme: isAllowedValue("theme", rawTheme) ? rawTheme : DEFAULT_PREFERENCES.theme,
- density: isAllowedValue("density", rawDensity) ? rawDensity : DEFAULT_PREFERENCES.density,
- accentColor: isAllowedValue("accentColor", rawAccentColor)
- ? rawAccentColor
- : DEFAULT_PREFERENCES.accentColor,
+  theme: isAllowedValue("theme", rawTheme) ? rawTheme : DEFAULT_PREFERENCES.theme,
+  density: isAllowedValue("density", rawDensity) ? rawDensity : DEFAULT_PREFERENCES.density,
+  accentColor: isAllowedValue("accentColor", rawAccentColor)
+   ? rawAccentColor
+   : DEFAULT_PREFERENCES.accentColor,
  };
 }
 

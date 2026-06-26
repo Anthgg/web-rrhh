@@ -36,6 +36,9 @@
   --color-header: var(--header);
   --color-header-foreground: var(--header-foreground);
 
+  /* Alias: foreground-soft → muted-foreground (backwards compat) */
+  --color-foreground-soft: var(--muted-foreground);
+
   --radius-4xl: 2rem;
   --shadow-shell: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03);
   --shadow-shell-lg: 0 4px 24px rgba(15, 23, 42, 0.06), 0 1px 4px rgba(15, 23, 42, 0.04);

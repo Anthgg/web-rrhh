@@ -61,12 +61,12 @@ function WorkerIdentityCell({ worker }: { worker: WorkerRecord }) {
  DNI: {worker.documentNumber}
  </span>
  ) : null}
- {worker.documentNumber && <span className="text-slate-300 text-[10px]">•</span>}
+ {worker.documentNumber && <span className="text-border text-[10px]">•</span>}
  <span
  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
  isComplete
- ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
- : "bg-amber-50 text-amber-700 border border-amber-100"
+ ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+ : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
  }`}
  >
  {isComplete ? "Ficha completa" : "Ficha incompleta"}

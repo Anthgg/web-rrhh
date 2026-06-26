@@ -17,7 +17,7 @@ export function SupervisorInfoCard({ crew }: SupervisorInfoCardProps) {
  <div className="flex flex-col p-6 rounded-2xl bg-card border border-border shadow-sm h-full">
  <div className="flex items-center gap-3 mb-5">
  <UserAvatar
- src={crew?.supervisor_avatar_url}
+ src={crew?.supervisor_avatar_url || crew?.supervisorAvatarUrl || crew?.supervisor_avatar || crew?.supervisor?.avatarUrl || crew?.supervisor?.profilePhotoUrl}
  fullName={name === "Supervisor no asignado" ? null : name}
  email={email === "Sin correo" ? null : email}
  size="md"

@@ -21,6 +21,7 @@ import {
  UserRound,
  X,
  XCircle,
+ AlertTriangle,
 } from "lucide-react";
 
 import { ErrorState, LoadingPanel } from "@/components/shared/states";
@@ -28,30 +29,33 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/fields";
 import { formatDate, formatDateRange, formatDateTime, formatFileSize } from "@/lib/utils/format";
+import { getRequestDisplayDateRange } from "@/lib/utils/requests";
 import type { RequestAttachment, RequestDetail } from "@/types/requests";
 
 import { RequestModalShell } from "@/components/requests/request-modal-shell";
 import { RequestStatusBadge } from "@/components/requests/RequestStatusBadge";
 
 interface RequestDetailModalProps {
- isOpen: boolean;
- request: RequestDetail | null;
- isLoading?: boolean;
- isError?: boolean;
- errorDescription?: string;
- isSubmitting?: boolean;
- isUploadingDocuments?: boolean;
- deletingDocumentId?: string | null;
- onRetry?: () => void;
- onClose: () => void;
- onEdit?: (request: RequestDetail) => void;
- onCancel?: (request: RequestDetail) => void;
- onResubmit?: (request: RequestDetail) => void;
- onApprove?: (request: RequestDetail) => void;
- onReject?: (request: RequestDetail) => void;
- onObserve?: (request: RequestDetail) => void;
- onUploadDocuments?: (requestId: string, files: File[]) => Promise<unknown> | void;
- onDeleteDocument?: (requestId: string, documentId: string) => void;
+  isOpen: boolean;
+  request: RequestDetail | null;
+  isLoading?: boolean;
+  isError?: boolean;
+  errorDescription?: string;
+  isSubmitting?: boolean;
+  isUploadingDocuments?: boolean;
+  deletingDocumentId?: string | null;
+  onRetry?: () => void;
+  onClose: () => void;
+  onEdit?: (request: RequestDetail) => void;
+  onCancel?: (request: RequestDetail) => void;
+  onResubmit?: (request: RequestDetail) => void;
+  onApprove?: (request: RequestDetail) => void;
+  onReject?: (request: RequestDetail) => void;
+  onObserve?: (request: RequestDetail) => void;
+  onUploadDocuments?: (requestId: string, files: File[]) => Promise<unknown> | void;
+  onDeleteDocument?: (requestId: string, documentId: string) => void;
+  onGenerateDocument?: (requestId: string) => Promise<unknown> | void;
+  onUploadSignedDocument?: (requestId: string, file: File) => Promise<unknown> | void;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -102,24 +106,26 @@ function createQueuedImagePreview(file: File) {
 }
 
 export function RequestDetailModal({
- isOpen,
- request,
- isLoading = false,
- isError = false,
- errorDescription,
- isSubmitting = false,
- isUploadingDocuments = false,
- deletingDocumentId,
- onRetry,
- onClose,
- onEdit,
- onCancel,
- onResubmit,
- onApprove,
- onReject,
- onObserve,
- onUploadDocuments,
- onDeleteDocument,
+  isOpen,
+  request,
+  isLoading = false,
+  isError = false,
+  errorDescription,
+  isSubmitting = false,
+  isUploadingDocuments = false,
+  deletingDocumentId,
+  onRetry,
+  onClose,
+  onEdit,
+  onCancel,
+  onResubmit,
+  onApprove,
+  onReject,
+  onObserve,
+  onUploadDocuments,
+  onDeleteDocument,
+  onGenerateDocument,
+  onUploadSignedDocument,
 }: RequestDetailModalProps) {
  const [dragActive, setDragActive] = useState(false);
  const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
@@ -277,7 +283,14 @@ export function RequestDetailModal({
  </div>
  </div>
 
- <RequestStatusBadge status={request.status} />
+ <div className="flex flex-wrap items-center gap-2">
+    <RequestStatusBadge status={request.status} statusLabel={request.statusLabel} />
+    {request.requiresBalanceOverride && (
+      <span className="rounded-full bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 px-3 py-1 text-xs font-semibold">
+        Excede saldo
+      </span>
+    )}
+  </div>
  </div>
 
  <div className="grid gap-4 md:grid-cols-2">
@@ -285,7 +298,7 @@ export function RequestDetailModal({
  <DetailRow label="Cargo" value={request.requester.position ?? "No informado"} />
  <DetailRow label="Area / proyecto" value={request.requester.project ?? request.requester.department ?? "No informado"} />
  <DetailRow label="Creada" value={formatDateTime(request.createdAt)} />
- <DetailRow label="Rango solicitado" value={formatDateRange(request.startDate, request.endDate)} />
+ <DetailRow label="Rango solicitado" value={getRequestDisplayDateRange(request)} />
  <DetailRow label="Dias solicitados" value={request.daysRequested ? String(request.daysRequested) : "No informado"} />
  <DetailRow label="Ultima actualizacion" value={formatDateTime(request.updatedAt ?? request.createdAt)} />
  {isReviewedRequest && approverLabel ? (
@@ -298,6 +311,35 @@ export function RequestDetailModal({
  />
  ) : null}
  </div>
+
+ {request.vacationBalance && (
+  <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50/30 dark:border-rose-900/30 dark:bg-rose-950/10 p-4 space-y-3">
+   <h4 className="text-xs font-bold text-rose-800 dark:text-rose-400 flex items-center gap-2 uppercase tracking-wider">
+    <AlertTriangle className="size-4 text-rose-600 dark:text-rose-400" />
+    Detalle de sobregiro vacacional
+   </h4>
+   <div className="grid grid-cols-3 gap-3 text-center">
+    <div className="rounded-xl bg-card border border-border p-2.5">
+     <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">Saldo al solicitar (Histórico)</p>
+     <p className="mt-1 text-sm font-bold text-foreground">
+      {parseFloat(request.vacationBalance.availableDaysAtRequest.toFixed(2))} días
+     </p>
+    </div>
+    <div className="rounded-xl bg-card border border-border p-2.5">
+     <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">Días solicitados</p>
+     <p className="mt-1 text-sm font-bold text-foreground">
+      {parseFloat(request.vacationBalance.requestedDays.toFixed(2))} días
+     </p>
+    </div>
+    <div className="rounded-xl bg-rose-100 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/40 p-2.5">
+     <p className="text-[10px] uppercase font-semibold text-rose-800 dark:text-rose-400 tracking-wider">Saldo proyectado</p>
+     <p className="mt-1 text-sm font-bold text-rose-700 dark:text-rose-300">
+      {parseFloat(request.vacationBalance.projectedAvailableDays.toFixed(2))} días
+     </p>
+    </div>
+   </div>
+  </div>
+ )}
  </Card>
 
  <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
@@ -335,13 +377,153 @@ export function RequestDetailModal({
  </div>
  </Card>
 
- <div className="grid gap-5">
- <Card className="grid gap-4 p-5">
- <div className="flex items-center justify-between gap-3">
- <div className="flex items-center gap-2">
- <Paperclip className="size-4 text-primary" />
- <h4 className="section-title text-lg font-semibold text-foreground">Adjuntos</h4>
- </div>
+  <div className="grid gap-5">
+    {/* Sección de Documento Formal */}
+    <Card className="grid gap-4 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <FileText className="size-4 text-primary" />
+          <h4 className="section-title text-lg font-semibold text-foreground">Documento Formal</h4>
+        </div>
+      </div>
+
+      {(() => {
+        if (!request) return null;
+        const formalDocuments: RequestAttachment[] = [];
+        const seenIds = new Set<string>();
+
+        if (request.generatedRequestDocument) {
+          formalDocuments.push(request.generatedRequestDocument);
+          seenIds.add(request.generatedRequestDocument.id);
+        }
+
+        if (request.attachments) {
+          for (const att of request.attachments) {
+            if ((att.documentType || att.status) && !seenIds.has(att.id)) {
+              formalDocuments.push(att);
+              seenIds.add(att.id);
+            }
+          }
+        }
+
+        const getStatusBadge = (status?: string) => {
+          if (!status) return null;
+          const normalized = status.toLowerCase().replace(/_/g, " ");
+          let label = status;
+          let colorClasses = "bg-muted text-foreground-soft border border-border";
+
+          if (normalized.includes("firmado subido") || normalized.includes("signed uploaded") || normalized === "signed") {
+            label = "Firmado subido";
+            colorClasses = "bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
+          } else if (normalized.includes("pendiente de firma") || normalized.includes("pending signature") || normalized === "pending") {
+            label = "Pendiente de firma";
+            colorClasses = "bg-amber-50 text-amber-700 border border-amber-200/60 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
+          } else if (normalized.includes("generado") || normalized.includes("generated")) {
+            label = "Generado";
+            colorClasses = "bg-blue-50 text-blue-700 border border-blue-200/60 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
+          }
+
+          return (
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClasses}`}>
+              {label}
+            </span>
+          );
+        };
+
+        if (formalDocuments.length === 0) {
+          return (
+            <div className="grid gap-3">
+              <div className="rounded-[1.5rem] border border-dashed border-border bg-muted/80 px-4 py-6 text-sm text-foreground-soft text-center">
+                No existe documento formal generado para esta solicitud.
+              </div>
+              {onGenerateDocument && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onGenerateDocument(request.id)}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl h-11 border border-primary/20 hover:border-primary text-primary"
+                >
+                  <FileText className="size-4" />
+                  Generar documento
+                </Button>
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <div className="grid gap-3">
+            {formalDocuments.map((doc) => {
+              const showSignedUpload = doc.id === request.generatedRequestDocument?.id && 
+                (!doc.status || !doc.status.toLowerCase().includes("signed"));
+
+              return (
+                <div key={doc.id} className="grid gap-3 rounded-[1.5rem] border border-border bg-muted/80 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-card text-muted-foreground">
+                        <FileText className="size-5 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{doc.name}</p>
+                        <div className="mt-1.5 flex flex-wrap gap-2 items-center">
+                          {doc.documentType && (
+                            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground-soft">
+                              {doc.documentType}
+                            </span>
+                          )}
+                          {getStatusBadge(doc.status)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap justify-end gap-2 shrink-0">
+                      {doc.url ? (
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-9 items-center justify-center rounded-2xl border border-border bg-card px-3 text-sm font-semibold text-primary transition hover:border-primary"
+                        >
+                          <Download className="mr-2 size-4" />
+                          Abrir / Descargar
+                        </a>
+                      ) : null}
+
+                      {showSignedUpload && onUploadSignedDocument && (
+                        <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-2xl bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90">
+                          <UploadCloud className="mr-2 size-4" />
+                          Subir firmado
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                onUploadSignedDocument(request.id, file);
+                              }
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+    </Card>
+
+  <Card className="grid gap-4 p-5">
+  <div className="flex items-center justify-between gap-3">
+  <div className="flex items-center gap-2">
+  <Paperclip className="size-4 text-primary" />
+  <h4 className="section-title text-lg font-semibold text-foreground">Adjuntos</h4>
+  </div>
 
  <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground-soft">
  {request.attachments.length} archivo(s)

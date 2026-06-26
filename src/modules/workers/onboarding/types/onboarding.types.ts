@@ -130,16 +130,17 @@ export interface AccessDataPayload {
 }
 
 export interface CreateOnboardingPayload {
- onboardingContext?: {
- mode: "create" | "complete";
- source?: "user-detail" | string;
- userId?: string;
- workerId?: string;
- };
- personalData: PersonalDataPayload;
- laborData: LaborDataPayload;
- contractData: ContractDataPayload;
- accessData: AccessDataPayload;
+  onboardingContext?: {
+    mode: "create" | "complete";
+    source?: "user-detail" | string;
+    userId?: string;
+    workerId?: string;
+  };
+  personalData: PersonalDataPayload;
+  laborData: LaborDataPayload;
+  contractData: ContractDataPayload;
+  accessData: AccessDataPayload;
+  requiredDocuments?: { type: string; title: string }[];
 }
 
 export interface OnboardingPrefillData {
@@ -236,6 +237,8 @@ export interface GenerateContractResponse {
  signed_file_url?: string | null;
  download_url?: string | null;
  view_url?: string | null;
+ contract_code?: string | null;
+ contractCode?: string | null;
  };
  contractId?: string;
  fileUrl?: string;
@@ -250,6 +253,9 @@ export interface ContractDownloadResponse {
  generated_pdf_url: string | null;
  signed_file_url: string | null;
  download_url: string;
+ contract_code?: string | null;
+ contractCode?: string | null;
+ fileName?: string | null;
  };
 }
 
@@ -267,6 +273,8 @@ export interface WorkerContractRecord {
  start_date?: string;
  createdAt?: string;
  created_at?: string;
+ contract_code?: string;
+ contractCode?: string;
 }
 
 export interface OnboardingStatusData {

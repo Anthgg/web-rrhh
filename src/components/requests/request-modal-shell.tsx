@@ -75,7 +75,7 @@ export function RequestModalShell({
  aria-modal="true"
  aria-label={title}
  className={cn(
- "relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.98))] shadow-[0_36px_120px_rgba(15,23,42,0.28)]",
+ "relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden border border-border/60 bg-card shadow-[0_36px_120px_rgba(15,23,42,0.28)]",
  position === "right"
  ? "h-full max-h-none max-w-3xl rounded-none rounded-l-[2rem]"
  : `rounded-[2rem] ${sizeMap[size]}`,

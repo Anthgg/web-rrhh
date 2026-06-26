@@ -9,6 +9,8 @@ export const backendRoutes = {
  login: adminApiEndpoints.auth.login,
  profile: adminApiEndpoints.auth.profile,
  refresh: adminApiEndpoints.auth.refresh,
+ verify2fa: adminApiEndpoints.auth.verify2fa,
+ logout: adminApiEndpoints.auth.logout,
  updateProfile: adminApiEndpoints.profile.update,
  changePassword: adminApiEndpoints.profile.changePassword,
  },
@@ -20,6 +22,7 @@ export const backendRoutes = {
  sessionsOther: adminApiEndpoints.profile.sessionsOther,
  sessionRevoke: (id: string) => appendId(adminApiEndpoints.profile.sessions, id),
  sessionTrust: (id: string) => appendAction(adminApiEndpoints.profile.sessions, id, ["trust"]),
+ activities: adminApiEndpoints.profile.activities,
  },
  dashboard: {
  summary: adminApiEndpoints.dashboard.summary,
@@ -51,6 +54,8 @@ export const backendRoutes = {
  observe: (id: string) => appendAction(adminApiEndpoints.requests.list, id, ["observe"]),
  resubmit: (id: string) => appendAction(adminApiEndpoints.requests.list, id, ["resubmit"]),
  documents: (id: string) => appendAction(adminApiEndpoints.requests.list, id, ["documents"]),
+ generateDocument: (id: string) => appendAction(adminApiEndpoints.requests.list, id, ["documents/generate"]),
+ uploadSignedDocument: (id: string) => appendAction(adminApiEndpoints.requests.list, id, ["documents/signed"]),
  document: (id: string, documentId: string) =>
  appendAction(adminApiEndpoints.requests.list, id, [`documents/${documentId}`]),
  templateDownload: (id: string) => appendAction(adminApiEndpoints.requests.templates, id, ["download"]),
@@ -114,6 +119,15 @@ export const backendRoutes = {
  },
  payroll: {
  periods: adminApiEndpoints.payroll.periods,
+ },
+ vacations: {
+ myBalance: adminApiEndpoints.vacations.myBalance,
+ workerBalance: (workerId: string) =>
+ adminApiEndpoints.vacations.workerBalance.map((p) => `${p}/${workerId}/balance`),
+ },
+ attendanceHistory: {
+ history: adminApiEndpoints.attendanceHistory.history,
+ summary: adminApiEndpoints.attendanceHistory.summary,
  },
  roles: {
  list: adminApiEndpoints.roles.list,

@@ -3,7 +3,6 @@ import {
  Eye,
  FilePenLine,
  RotateCcw,
- Search,
  Trash2,
  XCircle,
 } from "lucide-react";
@@ -107,8 +106,8 @@ export function RequestActions({
  )}
 
  <Button className={viewClassName} onClick={() => onView(item)}>
- <Search className="mr-2 size-4" />
- Ver
+ <Eye className="mr-2 size-4" />
+ Ver detalle
  </Button>
  </div>
  );

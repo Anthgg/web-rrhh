@@ -1,5 +1,6 @@
 "use client";
 
+import { hideLoading, showLoading, type LoadingVariant } from "@/store/loading-store";
 import { getClientAccessToken } from "@/lib/auth/client-token";
 import type { ApiErrorPayload } from "@/types";
 
@@ -35,6 +36,10 @@ export async function apiClient<T>(
  body?: unknown;
  query?: object;
  suppressUnauthorizedEvent?: boolean;
+ skipGlobalLoader?: boolean;
+ loaderMessage?: string;
+ loaderDescription?: string;
+ loaderVariant?: LoadingVariant;
  },
 ): Promise<T> {
  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
@@ -44,8 +49,32 @@ export async function apiClient<T>(
  ? JSON.stringify(init.body)
  : ((init?.body as BodyInit | null | undefined) ?? undefined);
 
- const { body, query, suppressUnauthorizedEvent, ...requestInit } = init ?? {};
+ const {
+ body,
+ query,
+ suppressUnauthorizedEvent,
+ skipGlobalLoader,
+ loaderMessage,
+ loaderDescription,
+ loaderVariant,
+ ...requestInit
+ } = init ?? {};
+ const method = (requestInit.method ?? "GET").toUpperCase();
+ const shouldShowLoader =
+ typeof window !== "undefined" &&
+ !skipGlobalLoader &&
+ !isLoaderExcludedEndpoint(endpoint) &&
+ (Boolean(loaderMessage || loaderDescription || loaderVariant) || method !== "GET");
 
+ if (shouldShowLoader) {
+ showLoading({
+ message: loaderMessage ?? getDefaultLoaderMessage(method),
+ description: loaderDescription,
+ variant: loaderVariant ?? inferLoaderVariant(endpoint),
+ });
+ }
+
+ try {
  const response = await fetch(`${endpoint}${buildQuery(query)}`, {
  ...requestInit,
  credentials: "same-origin",
@@ -59,23 +88,69 @@ export async function apiClient<T>(
  cache: "no-store",
  });
 
- const payload = (await response.json().catch(() => null)) as T | ApiErrorPayload | null;
+ const payload = await response.json().catch(() => null);
 
  if (!response.ok) {
- const errorPayload = payload as ApiErrorPayload | null;
+ const errorPayload = typeof payload === "object" && payload !== null ? payload as ApiErrorPayload : null;
+ const rawError = typeof payload === "object" && payload !== null ? payload as { error_code?: string } : null;
+ const errorCode = errorPayload?.errorCode ?? errorPayload?.code ?? rawError?.error_code ?? null;
 
  if (response.status === 401 && typeof window !== "undefined" && !suppressUnauthorizedEvent) {
- window.dispatchEvent(new CustomEvent("auth:unauthorized"));
+ window.dispatchEvent(
+   new CustomEvent("auth:unauthorized", {
+     detail: { errorCode },
+   })
+ );
+ }
+
+ if (response.status === 403 && errorCode === "PASSWORD_CHANGE_REQUIRED" && typeof window !== "undefined") {
+   window.dispatchEvent(
+     new CustomEvent("auth:password-change-required")
+   );
  }
 
  throw new ApiClientError(
  errorPayload?.message ?? "La solicitud no pudo completarse.",
  response.status,
  errorPayload?.details ?? errorPayload,
- errorPayload?.errorCode ?? errorPayload?.code ?? null,
+ errorCode,
  errorPayload,
  );
  }
 
  return payload as T;
+ } finally {
+ if (shouldShowLoader) {
+ hideLoading();
+ }
+ }
+}
+
+function isLoaderExcludedEndpoint(endpoint: string) {
+ return [
+ "/api/auth/session",
+ "/api/auth/logout",
+ "/api/auth/verify-password",
+ "/api/users/me/preferences",
+ "/api/auth/refresh",
+ "/api/refresh",
+ "/api/polling",
+ "/api/heartbeat",
+ "/api/birthdays/",
+  "/api/notifications",
+  "/api/requests/pending",
+  "/api/schedule/policies",
+  ].some((excluded) => endpoint.includes(excluded));
+}
+
+function getDefaultLoaderMessage(method: string) {
+ if (method === "GET") return "Cargando informacion...";
+ if (method === "DELETE") return "Eliminando registro...";
+ return "Procesando solicitud...";
+}
+
+function inferLoaderVariant(endpoint: string): LoadingVariant {
+ return /reports?|reportes?|export|pdf|excel|download|descarga/i.test(endpoint)
+ ? "processing"
+ : "default";
 }

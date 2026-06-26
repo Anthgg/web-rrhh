@@ -1,102 +1,69 @@
-import { apiClient } from "@/lib/api/client";
+import { ApiClientError, apiClient } from "@/lib/api/client";
 import { webApiEndpoints } from "@/lib/api/endpoints";
+import { normalizeProfileSessionsResponse } from "@/lib/api/normalizers/session-normalizer";
 import type { ChangePasswordPayload, ProfileEditableFields, ProfileSession } from "@/types";
 
 type SessionListResponse =
- | ProfileSession[]
- | {
- data?: unknown;
- sessions?: unknown;
- revokedCount?: unknown;
- };
+  | ProfileSession[]
+  | {
+      data?: unknown;
+      sessions?: unknown;
+      revokedCount?: unknown;
+    };
 
 export interface RevokeOtherSessionsResult {
- revokedCount?: number | null;
+  revokedCount: number;
+  revokedTokens: number;
+  message: string;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
- Boolean(value) && typeof value === "object";
+  Boolean(value) && typeof value === "object";
 
-const readString = (record: Record<string, unknown>, keys: string[]) => {
- for (const key of keys) {
- const value = record[key];
- if (typeof value === "string" && value.trim()) return value.trim();
- if (typeof value === "number") return String(value);
- }
- return null;
+const readNumber = (record: Record<string, unknown>, keys: string[]): number | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
 };
 
-const readBoolean = (record: Record<string, unknown>, keys: string[]) => {
- for (const key of keys) {
- const value = record[key];
- if (typeof value === "boolean") return value;
- if (typeof value === "string") {
- const normalized = value.toLowerCase();
- if (normalized === "true") return true;
- if (normalized === "false") return false;
- }
- }
- return null;
+const readString = (record: Record<string, unknown>, keys: string[]): string | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
 };
 
-const readNumber = (record: Record<string, unknown>, keys: string[]) => {
- for (const key of keys) {
- const value = record[key];
- if (typeof value === "number" && Number.isFinite(value)) return value;
- if (typeof value === "string" && value.trim()) {
- const parsed = Number(value);
- if (Number.isFinite(parsed)) return parsed;
- }
- }
- return null;
-};
+/**
+ * Parses the revokeOtherSessions response.
+ * Backend contract:
+ *   { success, message, revokedCount, data: { revokedCount, revokedTokens } }
+ * The proxy returns response.data which is the full backend body.
+ */
+const parseRevokeOtherResponse = (response: unknown): RevokeOtherSessionsResult => {
+  const defaults: RevokeOtherSessionsResult = { revokedCount: 0, revokedTokens: 0, message: "" };
+  if (!isRecord(response)) return defaults;
 
-const readSessionList = (response: unknown): unknown[] => {
- if (Array.isArray(response)) return response;
- if (!isRecord(response)) return [];
- if (Array.isArray(response.data)) return response.data;
- if (Array.isArray(response.sessions)) return response.sessions;
- return [];
-};
+  // Top-level fields from backend
+  const topCount = readNumber(response, ["revokedCount", "revoked_count"]) ?? 0;
+  const topMessage = readString(response, ["message"]) ?? "";
 
-const readRevokedCount = (response: unknown) => {
- if (!isRecord(response)) return null;
- const nested = isRecord(response.data) ? response.data : null;
- return readNumber(response, ["revokedCount", "revoked_count"]) ?? (nested ? readNumber(nested, ["revokedCount", "revoked_count"]) : null);
-};
+  // Nested data object
+  const nested = isRecord(response.data) ? response.data : null;
+  const nestedCount = nested ? (readNumber(nested, ["revokedCount", "revoked_count"]) ?? 0) : 0;
+  const nestedTokens = nested ? (readNumber(nested, ["revokedTokens", "revoked_tokens"]) ?? 0) : 0;
 
-const normalizeProfileSession = (value: unknown): ProfileSession | null => {
- if (!isRecord(value)) return null;
-
- const id = readString(value, ["id", "sessionId", "session_id"]);
- if (!id) return null;
-
- const metadata = isRecord(value.metadata) ? value.metadata : null;
- const isTrusted = readBoolean(value, ["isTrusted", "is_trusted", "trusted"]) ?? false;
- const canTrust = readBoolean(value, ["canTrust", "can_trust"]) ?? !isTrusted;
-
- return {
- id,
- userId: readString(value, ["userId", "user_id"]) ?? "",
- userAgent: readString(value, ["userAgent", "user_agent"]) ?? (metadata ? readString(metadata, ["userAgent", "user_agent"]) : null),
- ipAddress: readString(value, ["ipAddress", "ip_address", "ip"]),
- location: readString(value, ["location", "ubicacion"]),
- country: readString(value, ["country", "pais"]),
- city: readString(value, ["city", "ciudad"]),
- latitude: readNumber(value, ["latitude", "lat"]),
- longitude: readNumber(value, ["longitude", "lng", "lon"]),
- browser: readString(value, ["browser", "navegador"]),
- os: readString(value, ["os", "system", "sistema"]),
- deviceType: readString(value, ["deviceType", "device_type", "type"]),
- deviceName: readString(value, ["deviceName", "device_name", "name"]),
- isTrusted,
- trustedAt: readString(value, ["trustedAt", "trusted_at"]),
- trustAvailableAt: readString(value, ["trustAvailableAt", "trust_available_at"]),
- lastActivityAt: readString(value, ["lastActivityAt", "last_activity_at", "lastActivity", "last_activity"]),
- expiresAt: readString(value, ["expiresAt", "expires_at", "expiration"]),
- isCurrent: readBoolean(value, ["isCurrent", "is_current", "current"]) ?? false,
- canTrust,
- };
+  return {
+    revokedCount: topCount || nestedCount,
+    revokedTokens: nestedTokens,
+    message: topMessage,
+  };
 };
 
 // ─── Standalone service functions ────────────────────────────────────────────
@@ -106,7 +73,7 @@ const normalizeProfileSession = (value: unknown): ProfileSession | null => {
  * Returns the raw backend response so normalizeCurrentUserProfile can process it.
  */
 export async function getCurrentProfile(): Promise<unknown> {
- return apiClient<unknown>(webApiEndpoints.profile.current);
+  return apiClient<unknown>(webApiEndpoints.profile.current);
 }
 
 /**
@@ -114,12 +81,12 @@ export async function getCurrentProfile(): Promise<unknown> {
  * Caller is responsible for building the diff payload via buildProfilePatchPayload.
  */
 export async function updateCurrentProfile(
- payload: Partial<ProfileEditableFields>,
+  payload: Partial<ProfileEditableFields>,
 ): Promise<unknown> {
- return apiClient<unknown>(webApiEndpoints.profile.current, {
- method: "PATCH",
- body: payload,
- });
+  return apiClient<unknown>(webApiEndpoints.profile.current, {
+    method: "PATCH",
+    body: payload,
+  });
 }
 
 /**
@@ -127,15 +94,15 @@ export async function updateCurrentProfile(
  * Only sends currentPassword + newPassword — confirmPassword is NOT included.
  */
 export async function changeProfilePassword(
- payload: ChangePasswordPayload,
+  payload: ChangePasswordPayload,
 ): Promise<{ message?: string; success?: boolean }> {
- return apiClient<{ message?: string; success?: boolean }>(
- webApiEndpoints.profile.password,
- {
- method: "POST",
- body: payload,
- },
- );
+  return apiClient<{ message?: string; success?: boolean }>(
+    webApiEndpoints.profile.password,
+    {
+      method: "POST",
+      body: payload,
+    },
+  );
 }
 
 /**
@@ -143,22 +110,20 @@ export async function changeProfilePassword(
  * Expects a File object, wraps it in FormData, and sends a POST request.
  */
 export async function uploadProfilePhoto(file: File): Promise<unknown> {
- const formData = new FormData();
- formData.append("photo", file);
- return apiClient<unknown>(webApiEndpoints.profile.photo, {
- method: "POST",
- body: formData,
- });
+  const formData = new FormData();
+  formData.append("photo", file);
+  return apiClient<unknown>(webApiEndpoints.profile.photo, {
+    method: "POST",
+    body: formData,
+  });
 }
 
 /**
  * Fetch the current user's active sessions.
  */
 export async function getActiveSessions(): Promise<ProfileSession[]> {
- const response = await apiClient<SessionListResponse>(webApiEndpoints.profile.sessions);
- return readSessionList(response)
- .map(normalizeProfileSession)
- .filter((session): session is ProfileSession => session !== null);
+  const response = await apiClient<SessionListResponse>(webApiEndpoints.profile.sessions);
+  return normalizeProfileSessionsResponse(response);
 }
 
 /**
@@ -174,32 +139,80 @@ export async function revokeSession(id: string): Promise<void> {
  * Revoke all other active sessions for the current user.
  */
 export async function revokeOtherSessions(): Promise<RevokeOtherSessionsResult> {
- const response = await apiClient<unknown>(webApiEndpoints.profile.sessionsOther, {
- method: "DELETE",
- });
- return {
- revokedCount: readRevokedCount(response),
- };
+  let response: unknown;
+  try {
+    response = await apiClient<unknown>(webApiEndpoints.profile.sessionsOther, {
+      method: "DELETE",
+      skipGlobalLoader: true,
+    });
+  } catch (error) {
+    if (!(error instanceof ApiClientError) || error.status !== 404) throw error;
+    response = await apiClient<unknown>(webApiEndpoints.profile.sessionsOtherFallback, {
+      method: "DELETE",
+      skipGlobalLoader: true,
+    });
+  }
+  return parseRevokeOtherResponse(response);
 }
 
-/**
- * Mark a specific session as trusted by ID.
- */
 export async function trustSession(id: string): Promise<void> {
   return apiClient<void>(webApiEndpoints.profile.trustSession(id), {
     method: "POST",
+    skipGlobalLoader: true,
+  });
+}
+
+export interface ProfileActivitiesResponse {
+  success: boolean;
+  data: {
+    activities: Array<{
+      id: string;
+      action: string;
+      actionLabel: string;
+      description: string;
+      scope: string;
+      module: string;
+      actorName: string;
+      createdAt: string;
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+  };
+}
+
+export async function getProfileActivities(options?: {
+  scope?: string;
+  days?: number | null;
+  page?: number;
+  limit?: number;
+}): Promise<ProfileActivitiesResponse> {
+  const query: Record<string, string | number> = {};
+  if (options?.scope) query.scope = options.scope;
+  if (options?.days !== undefined && options?.days !== null) query.days = options.days;
+  if (options?.page) query.page = options.page;
+  if (options?.limit) query.limit = options.limit;
+
+  return apiClient<ProfileActivitiesResponse>(webApiEndpoints.profile.activities, {
+    query,
+    skipGlobalLoader: true,
   });
 }
 
 // ─── Legacy object (kept for backwards-compat with existing imports) ──────────
 
-/** @deprecated Use standalone functions: getCurrentProfile, updateCurrentProfile, changeProfilePassword */
+/** @deprecated Use standalone functions: getCurrentProfile, updateCurrentProfile, changePassword */
 export const profileService = {
- get: getCurrentProfile,
- update: updateCurrentProfile,
- changePassword: (payload: { currentPassword: string; newPassword: string; confirmPassword?: string }) => {
- // Strip confirmPassword before sending to backend
- const { currentPassword, newPassword } = payload;
- return changeProfilePassword({ currentPassword, newPassword });
- },
+  get: getCurrentProfile,
+  update: updateCurrentProfile,
+  changePassword: (payload: { currentPassword: string; newPassword: string; confirmPassword?: string }) => {
+  // Strip confirmPassword before sending to backend
+  const { currentPassword, newPassword } = payload;
+  return changeProfilePassword({ currentPassword, newPassword });
+  },
 };

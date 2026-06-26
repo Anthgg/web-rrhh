@@ -2,6 +2,7 @@ import { CalendarDays, Clock3, FolderKanban, Paperclip } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
+import { getRequestDisplayDateRange } from "@/lib/utils/requests";
 import type { RequestItem } from "@/types/requests";
 
 import { RequestActions } from "@/components/requests/RequestActions";
@@ -44,7 +45,7 @@ export function RequestCardList({
  {item.code}
  </div>
  </div>
- <RequestStatusBadge status={item.status} />
+ <RequestStatusBadge status={item.status} statusLabel={item.statusLabel} />
  </div>
 
  <div className="grid gap-3 text-sm text-foreground">
@@ -56,7 +57,7 @@ export function RequestCardList({
  <div className="grid gap-2 text-foreground-soft sm:grid-cols-2">
  <div className="inline-flex items-center gap-2">
  <CalendarDays className="size-4 text-primary" />
- {formatDate(item.startDate)}{item.endDate ? ` - ${formatDate(item.endDate)}` : ""}
+ {getRequestDisplayDateRange(item)}
  </div>
  <div className="inline-flex items-center gap-2">
  <Clock3 className="size-4 text-primary" />

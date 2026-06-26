@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/shared/states";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { Card } from "@/components/ui/card";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
-import { requestPageSizeOptions } from "@/lib/utils/requests";
+import { requestPageSizeOptions, getRequestDisplayStartDate, getRequestDisplayEndDate } from "@/lib/utils/requests";
 import type { RequestItem } from "@/types/requests";
 
 import { RequestActions } from "@/components/requests/RequestActions";
@@ -72,7 +72,11 @@ export function MyRequestsTable({
  </thead>
  <tbody className="divide-y divide-border bg-card">
  {items.map((item) => (
- <tr key={item.id} className="align-top transition-colors hover:bg-muted/70">
+ <tr
+ key={item.id}
+ className="cursor-pointer align-top transition-colors hover:bg-muted/70"
+ onClick={() => onView(item)}
+ >
  <td className="p-4 text-sm text-foreground">
  <div className="grid gap-1">
  <strong className="font-semibold">{item.code}</strong>
@@ -88,26 +92,35 @@ export function MyRequestsTable({
  </div>
  </td>
  <td className="p-4 text-sm text-foreground">
- <div className="grid gap-1">
- <span>{formatDate(item.startDate)}</span>
- <span className="text-xs text-foreground-soft">
- {item.endDate ? `Hasta ${formatDate(item.endDate)}` : "Sin fecha fin"}
- </span>
- </div>
- </td>
+  <div className="grid gap-1">
+  <span>{getRequestDisplayStartDate(item)}</span>
+  <span className="text-xs text-foreground-soft">
+  {item.endDate || item.endDisplayDate || item.endCalendarDate ? `Hasta ${getRequestDisplayEndDate(item)}` : "Sin fecha fin"}
+  </span>
+  </div>
+  </td>
  <td className="p-4 text-sm text-foreground">
- <RequestStatusBadge status={item.status} />
- </td>
+  <div className="flex flex-col items-start gap-1">
+   <RequestStatusBadge status={item.status} statusLabel={item.statusLabel} />
+   {item.requiresBalanceOverride && (
+    <span className="rounded-full bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
+     Excede saldo
+    </span>
+   )}
+  </div>
+  </td>
  <td className="max-w-xs p-4 text-sm text-foreground">
- <div className="line-clamp-2">{item.reason}</div>
+ <div className="line-clamp-2" title={item.reason}>{item.reason}</div>
  </td>
  <td className="max-w-sm p-4 text-sm text-foreground-soft">
+ <div className="line-clamp-2" title={item.reviewComment ?? undefined}>
  {item.reviewComment ?? "Sin respuesta registrada todavia."}
+ </div>
  </td>
  <td className="p-4 text-sm text-foreground-soft">
  {formatDateTime(item.updatedAt ?? item.createdAt)}
  </td>
- <td className="p-4 text-sm text-foreground">
+ <td className="p-4 text-sm text-foreground" onClick={(e) => e.stopPropagation()}>
  <RequestActions
  item={item}
  isAdmin={false}
@@ -139,15 +152,22 @@ export function MyRequestsTable({
  <h3 className="text-lg font-semibold text-foreground">{item.typeName}</h3>
  <p className="text-sm text-foreground-soft">{item.reason}</p>
  </div>
- <RequestStatusBadge status={item.status} />
+ <div className="flex flex-col items-end gap-1 shrink-0">
+  <RequestStatusBadge status={item.status} statusLabel={item.statusLabel} />
+  {item.requiresBalanceOverride && (
+   <span className="rounded-full bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
+    Excede saldo
+   </span>
+  )}
+ </div>
  </div>
 
- <div className="grid gap-3 rounded-[1.5rem] border border-border bg-muted/80 p-4 text-sm">
- <div className="inline-flex items-center gap-2 text-foreground-soft">
- <CalendarDays className="size-4 text-primary" />
- {formatDate(item.startDate)}
- {item.endDate ? ` - ${formatDate(item.endDate)}` : ""}
- </div>
+  <div className="grid gap-3 rounded-[1.5rem] border border-border bg-muted/80 p-4 text-sm">
+  <div className="inline-flex items-center gap-2 text-foreground-soft">
+  <CalendarDays className="size-4 text-primary" />
+  {getRequestDisplayStartDate(item)}
+  {item.endDate || item.endDisplayDate || item.endCalendarDate ? ` - ${getRequestDisplayEndDate(item)}` : ""}
+  </div>
  <div className="inline-flex items-start gap-2 text-foreground-soft">
  <MessageSquareQuote className="mt-0.5 size-4 text-primary" />
  <span>{item.reviewComment ?? "Sin respuesta del area por el momento."}</span>

@@ -3,6 +3,7 @@ import { backendRoutes } from "@/lib/config/backend-routes";
 import { normalizeTokens } from "@/lib/api/normalizers";
 import { maskToken } from "@/lib/auth/jwt";
 import { logger } from "@/lib/logger";
+import { cookies } from "next/headers";
 
 export class BackendApiError extends Error {
  constructor(
@@ -30,6 +31,12 @@ interface BackendRequestOptions {
  allowRefresh?: boolean;
  /** Timeout in milliseconds. Defaults to BACKEND_TIMEOUT_MS (15 000). */
  timeoutMs?: number;
+ /**
+  * Extra headers to forward verbatim to the backend.
+  * Useful for proxying User-Agent, X-Forwarded-For, X-Real-IP, etc.
+  * from the original browser request through the Next.js server.
+  */
+ forwardHeaders?: Record<string, string>;
 }
 
 interface BackendResponse<T> {
@@ -82,8 +89,15 @@ const authDebug = (event: string, data: Record<string, unknown> = {}) => {
 /** Default backend request timeout — overridable per call. */
 const BACKEND_TIMEOUT_MS = 15_000;
 
+/** Maximum retries for 429 Rate-Limited requests. */
+const MAX_RETRIES_429 = 2;
+
 /** Build an AbortSignal that fires after `ms` milliseconds. */
 const timeoutSignal = (ms: number) => AbortSignal.timeout(ms);
+
+function delay(ms: number): Promise<void> {
+ return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 const globalRefreshState = globalThis as typeof globalThis & {
  __fabryorRefreshRequests?: Map<string, Promise<RefreshedTokenBundle | null>>;
@@ -184,97 +198,258 @@ function getTenantIdFromToken(token?: string | null): string | null {
  }
 }
 
-export async function backendRequest<T>({
- pathCandidates,
- method = "GET",
- body,
- query,
- accessToken,
- refreshToken,
- allowRefresh = true,
- timeoutMs = BACKEND_TIMEOUT_MS,
+async function performBackendRequest<T>({
+  pathCandidates,
+  method = "GET",
+  body,
+  query,
+  accessToken,
+  refreshToken,
+  allowRefresh = true,
+  timeoutMs = BACKEND_TIMEOUT_MS,
+  forwardHeaders,
 }: BackendRequestOptions): Promise<BackendResponse<T>> {
- let lastError: BackendApiError | null = null;
- const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
- const tenantId = getTenantIdFromToken(accessToken);
+  let lastError: BackendApiError | null = null;
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const tenantId = getTenantIdFromToken(accessToken);
 
- for (const path of pathCandidates) {
- let response: Response;
+  let deviceId: string | undefined;
+  try {
+    const cookieStore = await cookies();
+    deviceId = cookieStore.get("device_id")?.value;
+  } catch {
+    // Fail silently when cookies() is not available (e.g. during static generation/builds)
+  }
 
- try {
- response = await fetch(buildUrl(path, query), {
- method,
- headers: {
- Accept: "application/json",
- ...(body && !isFormData ? { "Content-Type": "application/json" } : {}),
- ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
- ...(tenantId ? { "tenant-id": tenantId } : {}),
- },
- body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
- cache: "no-store",
- signal: timeoutSignal(timeoutMs),
- });
- } catch (fetchError) {
- // AbortError means the timeout fired — surface as a 504 Gateway Timeout
- if (fetchError instanceof Error && fetchError.name === "AbortError") {
- throw new BackendApiError(
- `El servidor no respondio a tiempo (${timeoutMs / 1000}s). Intenta de nuevo.`,
- 504,
- { path, timeoutMs },
- );
- }
- // Network-level error (no connection, DNS failure, etc.)
- throw new BackendApiError(
- "No se pudo conectar con el servidor. Verifica tu conexion.",
- 503,
- fetchError instanceof Error ? fetchError.message : String(fetchError),
- );
- }
+  for (const path of pathCandidates) {
+  let response: Response;
 
- const payload = await safeJson(response);
+  try {
+  response = await fetch(buildUrl(path, query), {
+  method,
+  headers: {
+  Accept: "application/json",
+  ...(body && !isFormData ? { "Content-Type": "application/json" } : {}),
+  ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  ...(tenantId ? { "tenant-id": tenantId } : {}),
+  ...(deviceId ? { "x-device-id": deviceId } : {}),
+  // Forward original browser headers (User-Agent, IP, etc.) when proxying
+  ...(forwardHeaders ?? {}),
+  },
+  body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
+  cache: "no-store",
+  signal: timeoutSignal(timeoutMs),
+  });
+  } catch (fetchError) {
+  // AbortError means the timeout fired — surface as a 504 Gateway Timeout
+  if (fetchError instanceof Error && fetchError.name === "AbortError") {
+  throw new BackendApiError(
+  `El servidor no respondio a tiempo (${timeoutMs / 1000}s). Intenta de nuevo.`,
+  504,
+  { path, timeoutMs },
+  );
+  }
+  // Network-level error (no connection, DNS failure, etc.)
+  throw new BackendApiError(
+  "No se pudo conectar con el servidor. Verifica tu conexion.",
+  503,
+  fetchError instanceof Error ? fetchError.message : String(fetchError),
+  );
+  }
 
- if (response.status === 404) {
- lastError = new BackendApiError("Ruta no encontrada en el backend.", 404, payload);
- continue;
- }
+   const payload = await safeJson(response);
 
- if (response.status === 401 && refreshToken && allowRefresh) {
- const refreshedTokens = await refreshBackendSession(refreshToken);
+   if (response.status === 404) {
+   lastError = new BackendApiError("Ruta no encontrada en el backend.", 404, payload);
+   continue;
+   }
 
- if (refreshedTokens?.accessToken) {
- const mergedTokens = {
- accessToken: refreshedTokens.accessToken,
- refreshToken: refreshedTokens.refreshToken ?? refreshToken,
- };
+   if (response.status === 429) {
+   for (let attempt = 1; attempt <= MAX_RETRIES_429; attempt++) {
+     const retryAfter = Number(response.headers.get("retry-after")) || attempt * 2;
+     const waitMs = Math.min(retryAfter * 1000, 8000);
+     await delay(waitMs);
 
- return backendRequest<T>({
- pathCandidates: [path],
- method,
- body,
- query,
- accessToken: mergedTokens.accessToken,
- refreshToken: mergedTokens.refreshToken,
- allowRefresh: false,
- timeoutMs,
- }).then((result) => ({
- ...result,
- refreshedTokens: mergedTokens,
- }));
- }
- }
+     response = await fetch(buildUrl(path, query), {
+     method,
+     headers: {
+       Accept: "application/json",
+       ...(body && !isFormData ? { "Content-Type": "application/json" } : {}),
+       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+       ...(tenantId ? { "tenant-id": tenantId } : {}),
+       ...(deviceId ? { "x-device-id": deviceId } : {}),
+       ...(forwardHeaders ?? {}),
+     },
+     body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
+     cache: "no-store",
+     signal: timeoutSignal(timeoutMs),
+     });
 
- if (!response.ok) {
- throw new BackendApiError(
- extractMessage(payload, "La API respondio con un error."),
- response.status,
- payload,
- );
- }
+     if (response.status !== 429) break;
+   }
 
- return {
- data: (payload as T) ?? ({} as T),
- };
- }
+   const retryPayload = await safeJson(response);
+   if (!response.ok) {
+     throw new BackendApiError(
+     extractMessage(retryPayload, "Demasiadas peticiones, intenta de nuevo más tarde."),
+     response.status,
+     retryPayload,
+     );
+   }
 
- throw lastError ?? new BackendApiError("No se encontro un endpoint compatible.", 404);
+   return {
+     data: (retryPayload as T) ?? ({} as T),
+   };
+   }
+
+   const errorPayload = payload as {
+     code?: string;
+     error_code?: string;
+     errorCode?: string;
+     error?: {
+       code?: string;
+       error_code?: string;
+       errorCode?: string;
+     } | null;
+   } | null;
+
+   const nestedCode = errorPayload?.error
+     ? (errorPayload.error.code ?? errorPayload.error.error_code ?? errorPayload.error.errorCode)
+     : null;
+
+   const isSessionRevoked = errorPayload && (
+     errorPayload.code === "SESSION_REVOKED" ||
+     errorPayload.error_code === "SESSION_REVOKED" ||
+     errorPayload.errorCode === "SESSION_REVOKED" ||
+     nestedCode === "SESSION_REVOKED"
+   );
+
+   if (response.status === 401 && refreshToken && allowRefresh && !isSessionRevoked) {
+     const refreshedTokens = await refreshBackendSession(refreshToken);
+
+  if (refreshedTokens?.accessToken) {
+  const mergedTokens = {
+  accessToken: refreshedTokens.accessToken,
+  refreshToken: refreshedTokens.refreshToken ?? refreshToken,
+  };
+
+  return backendRequest<T>({
+  pathCandidates: [path],
+  method,
+  body,
+  query,
+  accessToken: mergedTokens.accessToken,
+  refreshToken: mergedTokens.refreshToken,
+  allowRefresh: false,
+  timeoutMs,
+  }).then((result) => ({
+  ...result,
+  refreshedTokens: mergedTokens,
+  }));
+  }
+  }
+
+  if (!response.ok) {
+  throw new BackendApiError(
+  extractMessage(payload, "La API respondio con un error."),
+  response.status,
+  payload,
+  );
+  }
+
+  return {
+  data: (payload as T) ?? ({} as T),
+  };
+  }
+
+  throw lastError ?? new BackendApiError("No se encontro un endpoint compatible.", 404);
+}
+
+// Caching and Request Coalescing structures
+interface CacheEntry {
+  data: any;
+  refreshedTokens?: RefreshedTokenBundle;
+  expiresAt: number;
+}
+
+const apiCache = new Map<string, CacheEntry>();
+const inFlightRequests = new Map<string, Promise<any>>();
+
+const CATALOG_PATTERNS = [
+  "/api/departments",
+  "/api/areas",
+  "/api/positions",
+  "/api/work-locations",
+  "/api/work-crews",
+  "/api/branches",
+  "/api/report-templates",
+  "/api/catalog-roles",
+  "/api/workers/companies",
+  "/api/workers/branches",
+  "/api/workers/types",
+  "/api/workers/shifts",
+  "/api/workers/supervisors",
+  "/api/contracts/cost-centers",
+];
+
+function isCatalogPath(pathCandidates: readonly string[]): boolean {
+  return pathCandidates.some((path) =>
+    CATALOG_PATTERNS.some((pattern) => path.startsWith(pattern) || path.includes(pattern))
+  );
+}
+
+function getCacheKey(
+  pathCandidates: readonly string[],
+  method: string,
+  query?: Record<string, any>,
+  body?: unknown,
+  accessToken?: string | null
+): string {
+  const queryStr = query ? JSON.stringify(query) : "";
+  const bodyStr = body ? JSON.stringify(body) : "";
+  const pathKey = pathCandidates.join(",");
+  const tokenKey = accessToken ? accessToken.slice(-12) : "";
+  return `${method}:${pathKey}:${queryStr}:${bodyStr}:${tokenKey}`;
+}
+
+export async function backendRequest<T>(options: BackendRequestOptions): Promise<BackendResponse<T>> {
+  const { method = "GET", pathCandidates, query, body, accessToken } = options;
+
+  if (method !== "GET") {
+    // Mutation: Clear cache to prevent stale data
+    apiCache.clear();
+    return performBackendRequest<T>(options);
+  }
+
+  const cacheKey = getCacheKey(pathCandidates, method, query, body, accessToken);
+  const now = Date.now();
+
+  const cached = apiCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return {
+      data: cached.data as T,
+      refreshedTokens: cached.refreshedTokens,
+    };
+  }
+
+  let inFlight = inFlightRequests.get(cacheKey);
+  if (!inFlight) {
+    inFlight = performBackendRequest<T>(options)
+      .then((res) => {
+        const isCatalog = isCatalogPath(pathCandidates);
+        const ttl = isCatalog ? 300_000 : 5_000; // 5 mins for catalogs, 5 seconds for other dynamic GET requests
+        apiCache.set(cacheKey, {
+          data: res.data,
+          refreshedTokens: res.refreshedTokens,
+          expiresAt: Date.now() + ttl,
+        });
+        return res;
+      })
+      .finally(() => {
+        inFlightRequests.delete(cacheKey);
+      });
+    inFlightRequests.set(cacheKey, inFlight);
+  }
+
+  return inFlight;
 }

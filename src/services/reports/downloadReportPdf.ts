@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getClientAccessToken } from "@/lib/auth/client-token";
+import { withGlobalLoading } from "@/store/loading-store";
 
 export interface CustomDataPayload {
  reportTitle?: string;
@@ -93,6 +94,7 @@ export async function downloadReportPdf({
  internalLabel,
  customData,
 }: DownloadReportParams): Promise<void> {
+ return withGlobalLoading(async () => {
  const token = getClientAccessToken();
 
  // Preparar el cuerpo del request envolviendo los filtros en el objeto "filters" como requiere el backend.
@@ -203,4 +205,9 @@ export async function downloadReportPdf({
  error instanceof Error ? error.message : "Error al descargar el PDF corporativo."
  );
  }
+ }, {
+ message: "Generando reporte PDF...",
+ description: "Procesando informacion y preparando el documento.",
+ variant: "processing",
+ });
 }

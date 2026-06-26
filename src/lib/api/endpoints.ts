@@ -9,6 +9,8 @@ export const adminApiEndpoints = {
  login: ["/api/login"],
  profile: ["/api/users/me", "/api/profile/current", "/profile", "/api/profile", "/api/profile/me"],
  refresh: ["/api/auth/refresh", "/auth/refresh-token"],
+ verify2fa: ["/api/auth/2fa/verify", "/auth/2fa/verify"],
+ logout: ["/api/auth/logout", "/auth/logout"],
  },
  dashboard: {
  summary: ["/api/dashboard", "/api/dashboard/summary"],
@@ -63,7 +65,13 @@ export const adminApiEndpoints = {
  update: ["/api/profile/current", "/profile", "/api/profile"],
  changePassword: ["/api/profile/password", "/profile/change-password"],
  sessions: ["/api/profile/sessions", "/profile/sessions"],
- sessionsOther: ["/api/profile/sessions/other", "/profile/sessions/other"],
+ sessionsOther: [
+    "/api/profile/sessions/others",
+    "/api/profile/sessions/other",
+    "/profile/sessions/others",
+    "/profile/sessions/other",
+  ],
+ activities: ["/api/profile/activities", "/profile/activities", "/api/users/me/activities"],
  },
  reports: {
  attendance: ["/api/reports/attendance"],
@@ -86,15 +94,25 @@ export const adminApiEndpoints = {
  payroll: {
  periods: ["/payroll/periods"],
  },
+ vacations: {
+    myBalance: ["/api/vacations/me/balance", "/api/vacations/balance"],
+    workerBalance: ["/api/vacations/workers"],
+  },
+  attendanceHistory: {
+    history: ["/api/attendance/history"],
+    summary: ["/api/attendance/summary"],
+  },
 } as const;
 
 export const webApiEndpoints = {
- auth: {
- login: "/api/auth/login",
- session: "/api/auth/session",
- logout: "/api/auth/logout",
- verifyPassword: "/api/auth/verify-password",
- },
+  auth: {
+    login: "/api/auth/login",
+    session: "/api/auth/session",
+    logout: "/api/auth/logout",
+    verifyPassword: "/api/auth/verify-password",
+    verify2fa: "/api/auth/2fa/verify",
+    changePassword: "/api/auth/change-password",
+  },
  dashboard: "/api/dashboard",
  requests: {
  list: "/api/requests",
@@ -120,7 +138,14 @@ export const webApiEndpoints = {
  document: (requestId: string, documentId: string) =>
  `/api/requests/${requestId}/documents/${documentId}`,
  },
- documents: "/api/documents",
+  documents: {
+    list: "/api/documents",
+    types: "/api/documents/types",
+    detail: (documentId: string) => `/api/documents/${documentId}`,
+    upload: (workerId: string) => `/api/documents/workers/${workerId}`,
+    review: (documentId: string) => `/api/documents/${documentId}/review`,
+    delete: (documentId: string) => `/api/documents/${documentId}`,
+  },
  workers: {
  list: "/api/workers",
  laborAssignment: (id: string) => `/api/workers/${id}/labor-assignment`,
@@ -143,9 +168,11 @@ export const webApiEndpoints = {
  photo: "/api/profile/photo",
  preferences: "/api/users/me/preferences",
  sessions: "/api/profile/sessions",
- sessionsOther: "/api/profile/sessions/other",
+ sessionsOther: "/api/profile/sessions/others",
+ sessionsOtherFallback: "/api/profile/sessions/other",
  revokeSession: (id: string) => `/api/profile/sessions/${id}`,
  trustSession: (id: string) => `/api/profile/sessions/${id}/trust`,
+ activities: "/api/profile/activities",
  },
  reports: "/api/reports",
  corporateReports: {
@@ -165,9 +192,21 @@ export const webApiEndpoints = {
  list: "/api/report-templates",
  detail: (templateId: string) => `/api/report-templates/${templateId}`,
  },
- payroll: {
- periods: "/api/payroll/periods",
- },
+  payroll: {
+    periods: "/api/payroll/periods",
+  },
+  schedule: {
+    policies: "/api/schedule/policies",
+    shifts: "/api/schedule/shifts",
+    shiftDetail: (id: string) => `/api/schedule/shifts/${id}`,
+    assignments: "/api/schedule/assignments",
+    assignmentDetail: (id: string) => `/api/schedule/assignments/${id}`,
+    workerSchedule: (workerId: string) => `/api/schedule/workers/${workerId}/schedule`,
+    workerRestDays: (workerId: string) => `/api/schedule/workers/${workerId}/rest-days`,
+    mySchedule: "/api/schedule/profile/my-schedule",
+    attendanceSummary: "/api/schedule/attendance-summary",
+    holidays: () => "/api/schedule/holidays",
+  },
  organization: {
  departments: "/api/departments",
  department: (id: string) => `/api/departments/${id}`,
@@ -183,8 +222,27 @@ export const webApiEndpoints = {
  workLocationStatus: (id: string) => `/api/work-locations/${id}/status`,
  },
  geography: {
- departments: "/api/geography/departments",
- provinces: "/api/geography/provinces",
- districts: "/api/geography/districts",
- },
+    departments: "/api/geography/departments",
+    provinces: "/api/geography/provinces",
+    districts: "/api/geography/districts",
+  },
+  vacations: {
+    myBalance: "/api/vacations/me/balance",
+    workerBalance: (workerId: string) => `/api/vacations/workers/${workerId}/balance`,
+  },
+  attendance: {
+    checkIn: "/api/attendance/check-in",
+    checkOut: "/api/attendance/check-out",
+    history: "/api/attendance/history",
+    summary: "/api/attendance/summary",
+    analyticsDashboard: "/api/attendance/analytics/dashboard",
+    analyticsTable: "/api/attendance/analytics/table",
+    analyticsWorker: (workerId: string) => `/api/attendance/analytics/workers/${workerId}`,
+    analyticsArea: (areaId: string) => `/api/attendance/analytics/areas/${areaId}`,
+    analyticsWorkLocation: (workLocationId: string) => `/api/attendance/analytics/work-locations/${workLocationId}`,
+    analyticsCrew: (crewId: string) => `/api/attendance/analytics/crews/${crewId}`,
+    analyticsExport: "/api/attendance/analytics/export",
+    analyticsExportFilters: "/api/attendance/analytics/export/filters",
+    recalculateAnalytics: "/api/attendance/analytics/recalculate",
+  },
 } as const;

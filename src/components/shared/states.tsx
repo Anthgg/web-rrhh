@@ -1,20 +1,16 @@
-import { AlertTriangle, Lock, SearchX } from "lucide-react";
+"use client";
 
-import { Button } from "@/components/ui/button";
+import { Lock } from "lucide-react";
+
 import { Card } from "@/components/ui/card";
+import {
+ EmptyState as FeedbackEmptyState,
+ ErrorState as FeedbackErrorState,
+ PageLoader,
+} from "@/components/ui/feedback";
 
 export function LoadingPanel({ title = "Cargando modulo" }: { title?: string }) {
- return (
- <Card className="grid gap-4">
- <div className="h-4 w-40 animate-pulse rounded-full bg-card-muted" />
- <div className="grid gap-3">
- <div className="h-20 animate-pulse rounded-3xl bg-card-muted" />
- <div className="h-20 animate-pulse rounded-3xl bg-card-muted" />
- <div className="h-20 animate-pulse rounded-3xl bg-card-muted" />
- </div>
- <p className="text-sm text-foreground-soft">{title}</p>
- </Card>
- );
+ return <PageLoader title={title} />;
 }
 
 export function EmptyState({
@@ -24,23 +20,13 @@ export function EmptyState({
  title: string;
  description: string;
 }) {
- return (
- <Card className="grid place-items-center gap-3 py-12 text-center">
- <div className="flex size-14 items-center justify-center rounded-full bg-card-muted text-foreground-soft">
- <SearchX className="size-6" />
- </div>
- <div className="grid gap-1">
- <h3 className="section-title text-xl font-semibold text-foreground">{title}</h3>
- <p className="max-w-md text-sm text-foreground-soft">{description}</p>
- </div>
- </Card>
- );
+ return <FeedbackEmptyState title={title} description={description} />;
 }
 
 export function PermissionState({ moduleName }: { moduleName: string }) {
  return (
  <Card className="grid place-items-center gap-4 py-16 text-center">
- <div className="flex size-16 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+ <div className="flex size-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
  <Lock className="size-7" />
  </div>
  <div className="grid gap-2">
@@ -64,15 +50,10 @@ export function ErrorState({
  onRetry?: () => void;
 }) {
  return (
- <Card className="grid gap-4 border-rose-200">
- <div className="flex size-12 items-center justify-center rounded-full bg-rose-100 text-rose-700">
- <AlertTriangle className="size-5" />
- </div>
- <div className="grid gap-1">
- <h3 className="section-title text-xl font-semibold text-foreground">{title}</h3>
- <p className="text-sm text-foreground-soft">{description}</p>
- </div>
- {onRetry ? <Button onClick={onRetry}>Reintentar</Button> : null}
- </Card>
+ <FeedbackErrorState
+ title={title}
+ description={description}
+ onRetry={onRetry}
+ />
  );
 }

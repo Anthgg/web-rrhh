@@ -1,3 +1,5 @@
+import { normalizeLeaveType } from "@/types/requests";
+import type { VacationBalance, AttendanceMonthlySummary } from "@/types/schedule";
 import type {
  DashboardEvent,
  DashboardMetric,
@@ -1420,27 +1422,36 @@ export function normalizePaginated<T>(
 }
 
 const requestStatusAliases: Record<string, RequestModuleStatus> = {
- resubmitted: "resubmitted",
- resent: "resubmitted",
- reenviado: "resubmitted",
- reenviada: "resubmitted",
- observed: "observed",
- observado: "observed",
- observada: "observed",
- approved: "approved",
- aprobado: "approved",
- aprobada: "approved",
- rejected: "rejected",
- rechazado: "rejected",
- rechazada: "rejected",
- cancelled: "cancelled",
- canceled: "cancelled",
- cancelado: "cancelled",
- cancelada: "cancelled",
- pending: "pending",
- pendiente: "pending",
- draft: "draft",
- borrador: "draft",
+  resubmitted: "resubmitted",
+  resent: "resubmitted",
+  reenviado: "resubmitted",
+  reenviada: "resubmitted",
+  observed: "observed",
+  observado: "observed",
+  observada: "observed",
+  approved: "approved",
+  aprobado: "approved",
+  aprobada: "approved",
+  rejected: "rejected",
+  rechazado: "rejected",
+  rechazada: "rejected",
+  cancelled: "cancelled",
+  canceled: "cancelled",
+  cancelado: "cancelled",
+  cancelada: "cancelled",
+  pending: "pending",
+  pendiente: "pending",
+  draft: "draft",
+  borrador: "draft",
+  pending_supervisor: "pending_supervisor",
+  "pendiente supervisor": "pending_supervisor",
+  pending_rrhh: "pending_rrhh",
+  "pendiente rrhh": "pending_rrhh",
+  expired: "expired",
+  expirado: "expired",
+  expirada: "expired",
+  vencido: "expired",
+  vencida: "expired",
 };
 
 const requestActionLabels: Record<RequestTimelineAction, string> = {
@@ -1480,49 +1491,59 @@ function normalizeRequestTimelineAction(value: unknown): RequestTimelineAction {
 }
 
 function normalizeRequestUserSummary(source: unknown): RequestItem["requester"] {
- const record = asRecord(source) ?? {};
- const firstName = asString(firstValue(record, ["firstName", "first_name", "nombres"]));
- const lastName = asString(firstValue(record, ["lastName", "last_name", "apellidos"]));
- const fullName =
- asString(
- firstValue(record, [
- "fullName",
- "full_name",
- "name",
- "requestedBy",
- "requesterName",
- "workerName",
- "worker_name",
- "employeeName",
- "user.name",
- ]),
- ) ||
- [firstName, lastName].filter(Boolean).join(" ") ||
- "No informado";
+  const record = asRecord(source) ?? {};
+  const firstName = asString(firstValue(record, ["firstName", "first_name", "nombres"]));
+  const lastName = asString(firstValue(record, ["lastName", "last_name", "apellidos"]));
+  const fullName =
+    asString(
+      firstValue(record, [
+        "fullName",
+        "full_name",
+        "name",
+        "requestedBy",
+        "requesterName",
+        "workerName",
+        "worker_name",
+        "employeeName",
+        "user.name",
+      ]),
+    ) ||
+    [firstName, lastName].filter(Boolean).join(" ") ||
+    "No informado";
 
- return {
- id:
- asString(firstValue(record, ["id", "userId", "user_id", "workerId", "worker_id", "worker_id"])) ||
- undefined,
- fullName,
- email: asString(firstValue(record, ["email", "correo", "user.email"])) || undefined,
- department: asString(firstValue(record, ["department", "area", "department_name"])) || undefined,
- position:
- asString(firstValue(record, ["position", "cargo", "jobTitle", "job_position_name"])) || undefined,
- project: asString(firstValue(record, ["project", "obra", "projectName", "project_name"])) || undefined,
- avatarUrl: cleanAvatarUrl(
- firstValue(record, [
- "avatarUrl",
- "avatar_url",
- "profilePhotoUrl",
- "profile_photo_url",
- "profilePhoto",
- "profile_photo",
- "user.avatarUrl",
- "user.profilePhotoUrl",
- ])
- ) || undefined,
- };
+  return {
+    id:
+      asString(firstValue(record, ["id", "userId", "user_id", "workerId", "worker_id", "worker_id"])) ||
+      undefined,
+    fullName,
+    email: asString(firstValue(record, ["email", "correo", "user.email"])) || undefined,
+    department: asString(firstValue(record, ["department", "area", "department_name", "departmentName", "areaName"])) || undefined,
+    position:
+      asString(firstValue(record, ["position", "cargo", "jobTitle", "job_position_name", "positionName"])) || undefined,
+    project: asString(firstValue(record, ["project", "obra", "projectName", "project_name", "workLocationName"])) || undefined,
+    avatarUrl: cleanAvatarUrl(
+      firstValue(record, [
+        "avatarUrl",
+        "avatar_url",
+        "profilePhotoUrl",
+        "profile_photo_url",
+        "profilePhoto",
+        "profile_photo",
+        "photoUrl",
+        "photo_url",
+        "user.avatarUrl",
+        "user.profilePhotoUrl",
+      ])
+    ) || undefined,
+    employeeCode: asString(firstValue(record, ["employeeCode", "employee_code", "workerCode", "worker_code", "code"])) || undefined,
+    phone: asString(firstValue(record, ["phone", "telefono", "cellphone", "phone_number"])) || undefined,
+    departmentName: asString(firstValue(record, ["departmentName", "department_name"])) || undefined,
+    areaName: asString(firstValue(record, ["areaName", "area_name"])) || undefined,
+    projectName: asString(firstValue(record, ["projectName", "project_name"])) || undefined,
+    workLocationName: asString(firstValue(record, ["workLocationName", "work_location_name", "workLocation", "sede_name", "sedeName"])) || undefined,
+    positionName: asString(firstValue(record, ["positionName", "position_name"])) || undefined,
+    status: asString(firstValue(record, ["status", "estado", "workerStatus", "worker_status", "laborStatus", "labor_status"])) || undefined,
+  };
 }
 
 function looksLikeTechnicalIdentifier(value: string) {
@@ -1778,15 +1799,64 @@ function normalizeRequestMetadata(source: unknown): RequestDetail["metadata"] {
  return Object.keys(metadata).length ? metadata : undefined;
 }
 
+function extractVacationBalanceSnapshot(source: unknown): any {
+  if (!source || typeof source !== "object") return undefined;
+  const src = source as Record<string, any>;
+  
+  // 1. Check metadata.vacationBalance
+  if (src.metadata?.vacationBalance) return src.metadata.vacationBalance;
+  
+  // 2. Check data level
+  if (src.data && typeof src.data === "object") {
+    const data = src.data as Record<string, any>;
+    if (data.vacationBalance) return data.vacationBalance;
+    if (data.metadata?.vacationBalance) return data.metadata.vacationBalance;
+    if (data.request && typeof data.request === "object") {
+      const req = data.request as Record<string, any>;
+      if (req.vacationBalance) return req.vacationBalance;
+      if (req.metadata?.vacationBalance) return req.metadata.vacationBalance;
+    }
+  }
+
+  // 3. Check request level
+  if (src.request && typeof src.request === "object") {
+    const req = src.request as Record<string, any>;
+    if (req.vacationBalance) return req.vacationBalance;
+    if (req.metadata?.vacationBalance) return req.metadata.vacationBalance;
+  }
+
+  // 4. Check direct level
+  if (src.vacationBalance) return src.vacationBalance;
+
+  return undefined;
+}
+
 export function normalizeRequestItem(source: unknown): RequestItem {
  const payloadRecord = asRecord(source) ?? {};
  const record =
  asRecord(firstValue(source, ["data.request", "request", "data"])) ?? payloadRecord;
- const status = normalizeRequestStatus(firstValue(record, ["status", "estado", "request_status"]));
+ const status = normalizeRequestStatus(firstValue(record, ["statusKey", "status_key", "status", "estado", "request_status"]));
+ const statusLabel = asString(firstValue(record, ["statusLabel", "status_label"])) || undefined;
  const requesterSource =
  firstValue(record, ["requester", "worker", "employee", "user", "requestedByUser"]) ?? record;
  const attachments = resolveRequestAttachments(source, record);
  const id = asString(firstValue(record, ["id", "_id", "uuid", "requestId", "request_id"]), "No informado");
+
+ const rawVacationBalance = extractVacationBalanceSnapshot(source) ?? extractVacationBalanceSnapshot(record);
+ const vacBalRecord = asRecord(rawVacationBalance);
+ const vacationBalance = vacBalRecord ? {
+  availableDaysAtRequest: asNumber(firstValue(vacBalRecord, ["availableDaysAtRequest", "available_days_at_request", "availableDays"])) ?? 0,
+  requestedDays: asNumber(firstValue(vacBalRecord, ["requestedDays", "requested_days"])) ?? 0,
+  projectedAvailableDays: asNumber(firstValue(vacBalRecord, ["projectedAvailableDays", "projected_available_days", "projectedDays"])) ?? 0,
+  exceedsAvailableBalance: asBoolean(firstValue(vacBalRecord, ["exceedsAvailableBalance", "exceeds_available_balance", "exceeds"])) ?? false,
+  requiresManagerOverride: asBoolean(firstValue(vacBalRecord, ["requiresManagerOverride", "requires_manager_override", "requiresOverride"])) ?? false,
+ } : undefined;
+
+ const requiresBalanceOverride = asBoolean(firstValue(record, ["requiresBalanceOverride", "requires_balance_override", "requiresOverride"])) ??
+                                 asBoolean(firstValue(payloadRecord, ["requiresBalanceOverride", "requires_balance_override"])) ??
+                                 vacationBalance?.requiresManagerOverride ??
+                                 vacationBalance?.exceedsAvailableBalance ??
+                                 false;
 
  return {
  id,
@@ -1820,6 +1890,7 @@ export function normalizeRequestItem(source: unknown): RequestItem {
  "No informado",
  ),
  status,
+ statusLabel,
  requester: normalizeRequestUserSummary(requesterSource),
  reason: asString(firstValue(record, ["reason", "motivo", "title", "titulo", "subject"]), "Sin motivo"),
  reviewComment:
@@ -1842,58 +1913,117 @@ export function normalizeRequestItem(source: unknown): RequestItem {
  undefined,
  endDate:
  asString(firstValue(record, ["endDate", "end_date", "fechaFin", "requestedEndDate"])) || undefined,
+ startCalendarDateTime: asString(firstValue(record, ["startCalendarDateTime", "start_calendar_date_time"])) || undefined,
+ endCalendarDateTime: asString(firstValue(record, ["endCalendarDateTime", "end_calendar_date_time"])) || undefined,
+ startCalendarDate: asString(firstValue(record, ["startCalendarDate", "start_calendar_date"])) || undefined,
+ endCalendarDate: asString(firstValue(record, ["endCalendarDate", "end_calendar_date"])) || undefined,
+ startDisplayDate: asString(firstValue(record, ["startDisplayDate", "start_display_date"])) || undefined,
+ endDisplayDate: asString(firstValue(record, ["endDisplayDate", "end_display_date"])) || undefined,
+ startDateKey: asString(firstValue(record, ["startDateKey", "start_date_key", "startCalendarDate", "start_calendar_date"])) || undefined,
+ endDateKey: asString(firstValue(record, ["endDateKey", "end_date_key", "endCalendarDate", "end_calendar_date"])) || undefined,
+ start_date: asString(firstValue(record, ["start_date", "startDate"])) || undefined,
+ end_date: asString(firstValue(record, ["end_date", "endDate"])) || undefined,
  daysRequested:
  asNumber(firstValue(record, ["days_requested", "daysRequested", "days"])) ?? undefined,
  attachmentsCount: resolveRequestAttachmentsCount(record, attachments),
  canEdit:
  asBoolean(firstValue(record, ["canEdit", "editable"])) ??
- ["draft", "pending", "observed"].includes(status),
+ ["draft", "pending", "pending_supervisor", "pending_rrhh", "observed"].includes(status),
  canCancel:
- asBoolean(firstValue(record, ["canCancel", "cancelable"])) ?? status === "pending",
+ asBoolean(firstValue(record, ["canCancel", "cancelable"])) ?? ["pending", "pending_supervisor", "pending_rrhh"].includes(status),
  canReview:
  asBoolean(firstValue(record, ["canReview", "reviewable"])) ??
- ["pending", "observed"].includes(status),
+ ["pending", "pending_supervisor", "pending_rrhh", "observed"].includes(status),
  canResubmit:
  asBoolean(firstValue(record, ["canResubmit", "resubmittable"])) ?? status === "observed",
  source: "api",
+ requiresBalanceOverride,
+ vacationBalance,
  };
 }
 
-export function normalizeRequestDetail(source: unknown): RequestDetail {
- const payloadRecord = asRecord(source) ?? {};
- const record =
- asRecord(firstValue(source, ["data.request", "request", "data"])) ?? payloadRecord;
- const attachments = resolveRequestAttachments(source, record);
- const baseItem = normalizeRequestItem(source);
- const reviewHistory = normalizeRequestReviewHistory(
- firstValue(source, [
- "data.history",
- "data.reviewHistory",
- "data.review_history",
- "history",
- "reviewHistory",
- "review_history",
- "timeline",
- "reviews",
- ]),
- );
- const reviewedEntry =
- reviewHistory.find((entry) => entry.action === baseItem.status) ??
- reviewHistory.find((entry) => ["approved", "rejected", "observed"].includes(entry.action));
+function normalizeRequestDocument(source: unknown): RequestAttachment | null {
+  const record = asRecord(source);
+  if (!record) return null;
 
- return {
- ...baseItem,
- approvedBy:
- baseItem.approvedBy ??
- (reviewedEntry?.actorName && reviewedEntry.actorName !== "No informado"
- ? reviewedEntry.actorName
- : undefined),
- attachments,
- reviewHistory,
- metadata: normalizeRequestMetadata(
- firstValue(record, ["metadata", "meta", "extra", "payload", "details"]),
- ),
- };
+  const url = asString(
+    firstValue(record, ["fileUrl", "file_url", "url", "link", "href", "downloadUrl", "download_url"])
+  );
+  if (!url) return null;
+
+  const name = asString(
+    firstValue(record, ["name", "fileName", "file_name", "title", "original_name"])
+  ) || url.split("/").pop() || "Documento Formal";
+
+  const mimeType = asString(
+    firstValue(record, ["mimeType", "mime_type", "contentType", "content_type"])
+  ) || undefined;
+
+  return {
+    id: asString(firstValue(record, ["id", "_id", "uuid", "documentId", "fileId"]), name),
+    name,
+    url,
+    mimeType,
+    fileSize: asNumber(firstValue(record, ["fileSize", "file_size", "size"])) ?? undefined,
+    status: asString(firstValue(record, ["status", "estado"])) || undefined,
+    createdAt: asString(firstValue(record, ["createdAt", "created_at", "uploaded_at"])) || undefined,
+    documentType: asString(firstValue(record, ["documentType", "document_type", "type"])) || undefined,
+    uploadedByName: asString(firstValue(record, ["uploadedByName", "uploaded_by_name"])) || undefined,
+    isImage: Boolean(mimeType?.startsWith("image/")),
+  };
+}
+
+export function normalizeRequestDetail(source: unknown): RequestDetail {
+  const payloadRecord = asRecord(source) ?? {};
+  const record =
+  asRecord(firstValue(source, ["data.request", "request", "data"])) ?? payloadRecord;
+  const attachments = resolveRequestAttachments(source, record);
+  const baseItem = normalizeRequestItem(source);
+  const reviewHistory = normalizeRequestReviewHistory(
+  firstValue(source, [
+  "data.history",
+  "data.reviewHistory",
+  "data.review_history",
+  "history",
+  "reviewHistory",
+  "review_history",
+  "timeline",
+  "reviews",
+  ]),
+  );
+  const reviewedEntry =
+  reviewHistory.find((entry) => entry.action === baseItem.status) ??
+  reviewHistory.find((entry) => ["approved", "rejected", "observed"].includes(entry.action));
+
+  const rawGeneratedDoc = firstValue(source, [
+    "data.generatedDocument",
+    "generatedDocument",
+    "data.generated_request_document",
+    "generated_request_document",
+    "request.generated_request_document",
+    "request.generatedRequestDocument"
+  ]) || firstValue(record, [
+    "generatedDocument",
+    "generated_request_document",
+    "generatedRequestDocument"
+  ]);
+
+  const generatedRequestDocument = rawGeneratedDoc ? normalizeRequestDocument(rawGeneratedDoc) : null;
+
+  return {
+  ...baseItem,
+  approvedBy:
+  baseItem.approvedBy ??
+  (reviewedEntry?.actorName && reviewedEntry.actorName !== "No informado"
+  ? reviewedEntry.actorName
+  : undefined),
+  attachments,
+  reviewHistory,
+  metadata: normalizeRequestMetadata(
+  firstValue(record, ["metadata", "meta", "extra", "payload", "details"]),
+  ),
+  generatedRequestDocument,
+  };
 }
 
 export function normalizeRequestTypes(payload: unknown): RequestTypeOption[] {
@@ -1916,27 +2046,80 @@ export function normalizeRequestTypes(payload: unknown): RequestTypeOption[] {
  const record = asRecord(entry);
  if (!record) continue;
 
- const name = asString(firstValue(record, ["name", "label", "title", "type", "tipo"]));
+ const name = asString(firstValue(record, ["name", "label", "title", "tipo"]));
  if (!name) continue;
 
+ // Read the canonical leave type from code or type field;
+ // normalise PERSONAL_PERMISSION → UNPAID_LEAVE automatically
+ const rawTypeCode = firstValue(record, ["type", "code", "slug", "key"]);
+ const leaveType = normalizeLeaveType(rawTypeCode);
+
  requestTypes.push({
- id: asString(firstValue(record, ["id", "_id", "uuid", "code", "typeId"]), name),
- code: asString(firstValue(record, ["code", "slug", "key"])) || undefined,
- name,
- description:
- asString(firstValue(record, ["description", "descripcion", "detail", "details"])) || undefined,
- active:
- asBoolean(firstValue(record, ["active", "isActive", "enabled", "estado_activo"])) ?? true,
- requiresEndDate:
- asBoolean(firstValue(record, ["requiresEndDate", "requires_end_date", "hasEndDate"])) ??
- undefined,
- allowsAttachment:
- asBoolean(firstValue(record, ["allowsAttachment", "allows_attachment", "supportsFiles"])) ??
- undefined,
+  id: asString(firstValue(record, ["id", "_id", "uuid", "typeId"]), name),
+  code: asString(firstValue(record, ["code", "slug", "key"])) || undefined,
+  type: leaveType,
+  name,
+  description:
+  asString(firstValue(record, ["description", "descripcion", "detail", "details"])) || undefined,
+  active:
+  asBoolean(firstValue(record, ["active", "isActive", "enabled", "estado_activo"])) ?? true,
+  requiresEndDate:
+  asBoolean(firstValue(record, ["requiresEndDate", "requires_end_date", "hasEndDate"])) ??
+  undefined,
+  allowsAttachment:
+  asBoolean(firstValue(record, ["allowsAttachment", "allows_attachment", "supportsFiles"])) ??
+  undefined,
  });
  }
 
  return requestTypes;
+}
+
+// ─── Vacation Balance ─────────────────────────────────────────────────────────
+
+export function normalizeVacationBalance(payload: unknown): VacationBalance {
+ const root = asRecord(payload) ?? {};
+ const record = asRecord(root.data) ?? root;
+ return {
+  generatedDays: asNumber(firstValue(record, ["generatedDays", "generated_days", "dias_generados"])) ?? 0,
+  accumulatedDays: asNumber(firstValue(record, ["accumulatedDays", "accumulated_days", "dias_acumulados"])) ?? 0,
+  usedDays: asNumber(firstValue(record, ["usedDays", "used_days", "dias_usados"])) ?? 0,
+  reservedDays: asNumber(firstValue(record, ["reservedDays", "reserved_days", "dias_reservados"])) ?? 0,
+  pendingDays: asNumber(firstValue(record, ["pendingDays", "pending_days", "dias_pendientes"])) ?? 0,
+  availableDays: asNumber(firstValue(record, ["availableDays", "available_days", "dias_disponibles"])) ?? 0,
+  annualVacationDays: asNumber(firstValue(record, ["annualVacationDays", "annual_vacation_days", "dias_anuales"])) ?? 0,
+  monthlyAccrualRate: asNumber(firstValue(record, ["monthlyAccrualRate", "monthly_accrual_rate", "tasa_mensual"])) ?? 0,
+  dailyAccrualRate: asNumber(firstValue(record, ["dailyAccrualRate", "daily_accrual_rate", "tasa_diaria"])) ?? 0,
+  completedServiceMonths: asNumber(firstValue(record, ["completedServiceMonths", "completed_service_months", "meses_servicio"])) ?? 0,
+  remainingServiceDays: asNumber(firstValue(record, ["remainingServiceDays", "remaining_service_days", "dias_servicio_restantes"])) ?? 0,
+  nextAccrualDate:
+  asString(firstValue(record, ["nextAccrualDate", "next_accrual_date", "proxima_acumulacion"])) || null,
+  nextServiceAnniversary:
+  asString(firstValue(record, ["nextServiceAnniversary", "next_service_anniversary", "proximo_aniversario"])) || null,
+  calculationMode:
+  asString(firstValue(record, ["calculationMode", "calculation_mode", "modo_calculo"])) || undefined,
+ };
+}
+
+export function normalizeAttendanceMonthlySummary(payload: unknown): AttendanceMonthlySummary {
+ const record =
+ asRecord(firstValue(payload, ["data", "summary", "data.summary"])) ??
+ asRecord(payload) ??
+ {};
+ return {
+  month: asNumber(firstValue(record, ["month", "mes"])) ?? 0,
+  year: asNumber(firstValue(record, ["year", "anio", "año"])) ?? 0,
+  presentDays: asNumber(firstValue(record, ["presentDays", "present_days"])) ?? 0,
+  lateDays: asNumber(firstValue(record, ["lateDays", "late_days"])) ?? 0,
+  absentDays: asNumber(firstValue(record, ["absentDays", "absent_days"])) ?? 0,
+  vacationDays: asNumber(firstValue(record, ["vacationDays", "vacation_days"])) ?? 0,
+  medicalLeaveDays: asNumber(firstValue(record, ["medicalLeaveDays", "medical_leave_days"])) ?? 0,
+  unpaidLeaveDays: asNumber(firstValue(record, ["unpaidLeaveDays", "unpaid_leave_days", "permission_unpaid_days"])) ?? 0,
+  holidayDays: asNumber(firstValue(record, ["holidayDays", "holiday_days"])) ?? 0,
+  restDays: asNumber(firstValue(record, ["restDays", "rest_days"])) ?? 0,
+  incompleteDays: asNumber(firstValue(record, ["incompleteDays", "incomplete_days"])) ?? 0,
+  totalWorkedHours: asNumber(firstValue(record, ["totalWorkedHours", "total_worked_hours", "worked_hours"])) ?? undefined,
+ };
 }
 
 function normalizeRequestReportValue(value: unknown) {
@@ -2402,6 +2585,10 @@ export function normalizeDocumentRecord(source: unknown): DocumentRecord {
  status,
  updatedAt: asString(firstValue(record, ["updatedAt", "updated_at", "fechaActualizacion"])),
  url: asString(firstValue(record, ["url", "link", "documentUrl"])) || undefined,
+ type: asString(firstValue(record, ["type", "document_type", "documentType"])) || undefined,
+ documentType: asString(firstValue(record, ["documentType", "document_type", "type"])) || undefined,
+ contractCode: asString(firstValue(record, ["contractCode", "contract_code"])) || undefined,
+ contract_code: asString(firstValue(record, ["contract_code", "contractCode"])) || undefined,
  };
 }
 

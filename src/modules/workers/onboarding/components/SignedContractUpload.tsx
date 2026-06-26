@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, FieldFrame } from "@/components/ui/fields";
+import { toast } from "sonner";
 import { useSignedContractUpload } from "../hooks/useSignedContractUpload";
 import { onboardingService } from "../services/onboarding.service";
 import { withPdfCacheBust } from "@/lib/pdf-url";
@@ -52,24 +53,33 @@ export function SignedContractUpload({
  });
 
  const generateContractMutation = useMutation({
- mutationFn: () => onboardingService.generateContract(workerId, { contract_id: contractId }),
- onSuccess: (response) => {
- const freshUrl =
- response.data?.pdf_url ||
- response.data?.download_url ||
- response.data?.generated_pdf_url ||
- response.fileUrl ||
- "";
+    mutationFn: () => onboardingService.generateContract(workerId, { contract_id: contractId }),
+    onSuccess: (response) => {
+      const freshUrl =
+        response.data?.pdf_url ||
+        response.data?.download_url ||
+        response.data?.generated_pdf_url ||
+        response.fileUrl ||
+        "";
 
- if (freshUrl) {
- setLatestContractUrl(withPdfCacheBust(freshUrl));
- }
+      if (freshUrl) {
+        setLatestContractUrl(withPdfCacheBust(freshUrl));
+      }
 
- void refetchContractDownload();
- void queryClient.invalidateQueries({ queryKey: ["contract-download", contractId] });
- void queryClient.invalidateQueries({ queryKey: ["onboarding-status", workerId] });
- },
- });
+      const code = response.data?.contract_code || response.data?.contractCode;
+      if (code) {
+        toast.success(`Contrato PDF generado correctamente (Código: ${code}).`);
+      } else {
+        toast.success("Contrato PDF generado correctamente.");
+      }
+
+      void refetchContractDownload();
+      void queryClient.invalidateQueries({ queryKey: ["contract-download", contractId] });
+      void queryClient.invalidateQueries({ queryKey: ["onboarding-status", workerId] });
+      void queryClient.invalidateQueries({ queryKey: ["worker-contracts", workerId] });
+      void queryClient.invalidateQueries({ queryKey: ["worker-generated-documents", workerId] });
+    },
+  });
 
  const generatedContractUrl =
  latestContractUrl ||
@@ -126,43 +136,58 @@ export function SignedContractUpload({
  }
  };
 
- return (
- <div className="space-y-6">
- <div className="bg-muted border border-border rounded-xl p-4 space-y-2">
- <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
- Gestión del Contrato
- </h4>
- <p className="text-xs text-muted-foreground">
- Descarga la plantilla generada, recaba la firma del trabajador y vuelve a subir el archivo
- firmado para archivar en su expediente.
- </p>
+  const contractCode = contractDownload?.data?.contract_code || contractDownload?.data?.contractCode;
 
- <div className="mt-3 flex flex-wrap items-center gap-3">
- {generatedContractUrl ? (
- <>
- <a
- href={generatedContractUrl}
- target="_blank"
- rel="noopener noreferrer"
- className="inline-flex items-center gap-1.5 text-xs text-indigo-700 font-semibold hover:underline"
- aria-label="Ver contrato en una nueva pestaña"
- >
- <ExternalLink className="size-4" />
- Ver contrato
- </a>
- <a
- href={generatedContractUrl}
- download
- target="_blank"
- rel="noopener noreferrer"
- className="inline-flex items-center gap-1.5 text-xs text-indigo-700 font-semibold hover:underline"
- aria-label="Descargar contrato en PDF"
- >
- <Download className="size-4" />
- Descargar contrato
- </a>
- </>
- ) : null}
+  return (
+    <div className="space-y-6">
+      <div className="bg-muted border border-border rounded-xl p-4 space-y-2">
+        <div className="flex justify-between items-start">
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+              Gestión del Contrato
+            </h4>
+            <p className="text-xs text-muted-foreground">
+              Descarga la plantilla generada, recaba la firma del trabajador y vuelve a subir el archivo
+              firmado para archivar en su expediente.
+            </p>
+          </div>
+          {contractCode ? (
+            <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+              {contractCode}
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+              Pendiente
+            </span>
+          )}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {generatedContractUrl ? (
+            <>
+              <a
+                href={generatedContractUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-indigo-700 font-semibold hover:underline"
+                aria-label="Ver contrato en una nueva pestaña"
+              >
+                <ExternalLink className="size-4" />
+                Ver contrato
+              </a>
+              <a
+                href={generatedContractUrl}
+                download={contractDownload?.data.file_name || contractDownload?.data.fileName || "contrato.pdf"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-indigo-700 font-semibold hover:underline"
+                aria-label="Descargar contrato en PDF"
+              >
+                <Download className="size-4" />
+                Descargar contrato
+              </a>
+            </>
+          ) : null}
 
  <Button
  type="button"

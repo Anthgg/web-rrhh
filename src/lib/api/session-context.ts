@@ -147,15 +147,38 @@ export async function getSessionContext() {
  }
 }
 
-export async function createSessionFromLogin(email: string, password: string) {
- const response = await backendRequest({
- pathCandidates: backendRoutes.auth.login,
- method: "POST",
- body: {
- email,
- password,
- },
- });
+export interface DeviceInfo {
+  userAgent: string;
+  language?: string;
+  timezone?: string;
+  screen?: { width: number; height: number; pixelRatio: number };
+  clientHints?: {
+    platform: string;
+    mobile: boolean;
+    model: string;
+    brands?: Array<{ brand: string; version: string }>;
+  };
+  deviceId?: string;
+}
+
+export async function createSessionFromLogin(
+  email: string,
+  password: string,
+  options?: {
+    forwardHeaders?: Record<string, string>;
+    deviceInfo?: DeviceInfo;
+  }
+) {
+  const response = await backendRequest({
+    pathCandidates: backendRoutes.auth.login,
+    method: "POST",
+    body: {
+      email,
+      password,
+      ...(options?.deviceInfo ? { deviceInfo: options.deviceInfo } : {}),
+    },
+    forwardHeaders: options?.forwardHeaders,
+  });
 
  const tokens = normalizeTokens(response.data);
 
@@ -209,4 +232,77 @@ export async function createSessionFromLogin(email: string, password: string) {
  accessToken: tokens.accessToken,
  };
  }
+}
+
+export async function createSessionFrom2FA(
+  code: string,
+  tempToken: string,
+  options?: {
+    forwardHeaders?: Record<string, string>;
+    deviceInfo?: DeviceInfo;
+  }
+) {
+  const response = await backendRequest({
+    pathCandidates: backendRoutes.auth.verify2fa,
+    method: "POST",
+    body: {
+      code,
+      ...(options?.deviceInfo ? { deviceInfo: options.deviceInfo } : {}),
+    },
+    accessToken: tempToken,
+    forwardHeaders: options?.forwardHeaders,
+  });
+
+  const tokens = normalizeTokens(response.data);
+
+  if (!tokens?.accessToken) {
+    throw new BackendApiError(
+      "La API de autenticacion de 2FA no devolvio un token utilizable.",
+      502,
+      response.data,
+    );
+  }
+
+  await setSessionCookies(tokens);
+  authDebug("2fa_tokens_saved", {
+    hasAccessToken: Boolean(tokens.accessToken),
+    hasRefreshToken: Boolean(tokens.refreshToken),
+    accessToken: maskToken(tokens.accessToken),
+    expiresAt: getJwtState(tokens.accessToken).expiresAt,
+  });
+
+  try {
+    const profile = await backendRequest({
+      pathCandidates: backendRoutes.auth.profile,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken ?? null,
+    });
+
+    if (profile.refreshedTokens) {
+      await setSessionCookies(profile.refreshedTokens);
+    }
+
+    const session = normalizeSession(profile.data);
+    await setSessionSnapshot(session);
+    authDebug("2fa_profile_loaded", {
+      userId: session.user.id,
+      role: session.user.role,
+    });
+    return {
+      session,
+      accessToken: profile.refreshedTokens?.accessToken ?? tokens.accessToken,
+    };
+  } catch (error) {
+    const session = normalizeSession(response.data);
+    await setSessionSnapshot(session);
+    authDebug("2fa_using_payload_user", {
+      userId: session.user.id,
+      role: session.user.role,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    return {
+      session,
+      accessToken: tokens.accessToken,
+    };
+  }
 }

@@ -21,7 +21,6 @@ import {
  type NewRequestFormPayload,
 } from "@/components/requests/NewRequestForm";
 import { PendingRequestsTable } from "@/components/requests/PendingRequestsTable";
-import { RequestDetailModal } from "@/components/requests/RequestDetailModal";
 import { RequestFilters } from "@/components/requests/RequestFilters";
 import { RequestReportsPanel } from "@/components/requests/RequestReportsPanel";
 import { RequestReviewModal } from "@/components/requests/RequestReviewModal";
@@ -152,9 +151,7 @@ export function RequestsWorkspace({ section }: RequestsWorkspaceProps) {
  const mainScope: RequestScope = isManager ? "company" : "my";
  const [myFilters, setMyFilters] = useState<RequestListFilters>(tableDefaultFilters);
  const [pendingFilters, setPendingFilters] = useState<RequestListFilters>(pendingDefaultFilters);
- const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
  const [reviewState, setReviewState] = useState<ReviewState>(null);
- const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
  const [formError, setFormError] = useState<{ key: string; message: string } | null>(null);
  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
  const editingRequestId = section === "new-request" ? searchParams.get("edit") : null;
@@ -191,17 +188,6 @@ export function RequestsWorkspace({ section }: RequestsWorkspaceProps) {
  includeStats: false,
  });
  const {
- data: detailData,
- error: detailError,
- isError: isDetailError,
- isLoading: isDetailLoading,
- refetch: refetchDetail,
- } = useQuery({
- queryKey: ["request-detail", detailRequestId],
- queryFn: () => requestsService.getById(detailRequestId as string),
- enabled: Boolean(detailRequestId),
- });
- const {
  data: editingRequestData,
  error: editingRequestError,
  isError: isEditingRequestError,
@@ -213,14 +199,20 @@ export function RequestsWorkspace({ section }: RequestsWorkspaceProps) {
  enabled: Boolean(editingRequestId),
  });
 
- const invalidateRequestModule = async () => {
- await Promise.all([
- queryClient.invalidateQueries({ queryKey: ["requests"] }),
- queryClient.invalidateQueries({ queryKey: ["request-stats"] }),
- queryClient.invalidateQueries({ queryKey: ["request-detail"] }),
- queryClient.invalidateQueries({ queryKey: ["request-report-preview"] }),
- ]);
- };
+  const invalidateRequestModule = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["requests"] }),
+      queryClient.invalidateQueries({ queryKey: ["request-stats"] }),
+      queryClient.invalidateQueries({ queryKey: ["request-detail"] }),
+      queryClient.invalidateQueries({ queryKey: ["request-report-preview"] }),
+      // Invalidate leave-related caches so vacation balance, attendance history,
+      // and attendance summaries reflect any approved/cancelled/rejected request.
+      // Note: Payroll is NOT automatically recalculated here (recalculation must be run explicitly).
+      queryClient.invalidateQueries({ queryKey: ["vacation-balance"] }),
+      queryClient.invalidateQueries({ queryKey: ["attendance-history"] }),
+      queryClient.invalidateQueries({ queryKey: ["attendance-summary"] }),
+    ]);
+  };
 
  const createMutation = useMutation({
  mutationFn: (payload: NewRequestFormPayload) =>
@@ -269,32 +261,13 @@ export function RequestsWorkspace({ section }: RequestsWorkspaceProps) {
  void invalidateRequestModule();
  },
  });
- const uploadDocumentsMutation = useMutation({
- mutationFn: ({ requestId, files }: { requestId: string; files: File[] }) =>
- requestsService.uploadDocuments(requestId, { documents: files }),
- onSuccess: () => {
- void queryClient.invalidateQueries({ queryKey: ["requests"] });
- void invalidateRequestModule();
- },
- });
- const deleteDocumentMutation = useMutation({
- mutationFn: ({ requestId, documentId }: { requestId: string; documentId: string }) =>
- requestsService.deleteDocument(requestId, documentId),
- onSuccess: () => {
- void queryClient.invalidateQueries({ queryKey: ["requests"] });
- void invalidateRequestModule();
- },
- });
-
  const requestTypes = requestTypesData ?? [];
  const stats = requestStats ?? requestDefaultStats;
- const detailRequest = detailData ?? null;
  const editingRequest = mapDetailToFormData(editingRequestData);
- const isActionSubmitting = reviewMutation.isPending || deleteDocumentMutation.isPending;
 
- const openReviewState = (action: RequestReviewAction, request: RequestItem) => {
- setReviewState({ action, request });
- };
+  const openReviewState = (action: RequestReviewAction, request: RequestItem) => {
+  setReviewState({ action, request });
+  };
 
  const handleCreateOrUpdateRequest = async (payload: NewRequestFormPayload) => {
  try {
@@ -307,8 +280,19 @@ export function RequestsWorkspace({ section }: RequestsWorkspaceProps) {
  });
  toast.success("Solicitud actualizada correctamente.");
  } else {
- await createMutation.mutateAsync(payload);
- toast.success("Solicitud registrada correctamente.");
+  const result = await createMutation.mutateAsync(payload);
+  const fileUrl = result?.generatedRequestDocument?.url;
+  if (fileUrl) {
+    toast.success("Solicitud registrada correctamente.", {
+      action: {
+        label: "Descargar documento",
+        onClick: () => window.open(fileUrl, "_blank"),
+      },
+      duration: 10000,
+    });
+  } else {
+    toast.success("Solicitud registrada correctamente.");
+  }
  }
 
  await invalidateRequestModule();
@@ -333,30 +317,6 @@ export function RequestsWorkspace({ section }: RequestsWorkspaceProps) {
  setReviewState(null);
  } catch (error) {
  toast.error(getErrorMessage(error));
- }
- };
-
- const handleUploadDocuments = async (requestId: string, files: File[]) => {
- try {
- await uploadDocumentsMutation.mutateAsync({ requestId, files });
- toast.success("Documentos subidos correctamente.");
- await invalidateRequestModule();
- } catch (error) {
- toast.error(getErrorMessage(error));
- throw error;
- }
- };
-
- const handleDeleteDocument = async (requestId: string, documentId: string) => {
- try {
- setDeletingDocumentId(documentId);
- await deleteDocumentMutation.mutateAsync({ requestId, documentId });
- toast.success("Documento eliminado correctamente.");
- await invalidateRequestModule();
- } catch (error) {
- toast.error(getErrorMessage(error));
- } finally {
- setDeletingDocumentId(null);
  }
  };
 
@@ -445,7 +405,7 @@ export function RequestsWorkspace({ section }: RequestsWorkspaceProps) {
  total={listData?.total ?? 0}
  onPageChange={(page) => setMyFilters((current) => ({ ...current, page }))}
  onPageSizeChange={(pageSize) => setMyFilters((current) => ({ ...current, page: 1, pageSize }))}
- onView={(request) => setDetailRequestId(request.id)}
+ onView={(request) => router.push(`/dashboard/requests/${request.id}`)}
  onEdit={(request) => router.push(`/dashboard/requests/new?edit=${request.id}`)}
  onCancel={(request) => openReviewState("cancel", request)}
  onResubmit={(request) => openReviewState("resubmit", request)}
@@ -551,7 +511,7 @@ export function RequestsWorkspace({ section }: RequestsWorkspaceProps) {
  onPageSizeChange={(pageSize) =>
  setPendingFilters((current) => ({ ...current, page: 1, pageSize }))
  }
- onView={(request) => setDetailRequestId(request.id)}
+ onView={(request) => router.push(`/dashboard/requests/${request.id}`)}
  onApprove={(request) => openReviewState("approve", request)}
  onReject={(request) => openReviewState("reject", request)}
  onObserve={(request) => openReviewState("observe", request)}
@@ -593,27 +553,6 @@ export function RequestsWorkspace({ section }: RequestsWorkspaceProps) {
  >
  {content}
  </RequestsLayout>
-
- <RequestDetailModal
- isOpen={Boolean(detailRequestId)}
- request={detailRequest}
- isLoading={isDetailLoading}
- isError={isDetailError}
- errorDescription={isDetailError ? getErrorMessage(detailError) : undefined}
- isSubmitting={isActionSubmitting}
- isUploadingDocuments={uploadDocumentsMutation.isPending}
- deletingDocumentId={deletingDocumentId}
- onRetry={() => void refetchDetail()}
- onClose={() => setDetailRequestId(null)}
- onEdit={(request) => router.push(`/dashboard/requests/new?edit=${request.id}`)}
- onCancel={(request) => openReviewState("cancel", request)}
- onResubmit={(request) => openReviewState("resubmit", request)}
- onApprove={(request) => openReviewState("approve", request)}
- onReject={(request) => openReviewState("reject", request)}
- onObserve={(request) => openReviewState("observe", request)}
- onUploadDocuments={handleUploadDocuments}
- onDeleteDocument={handleDeleteDocument}
- />
 
  <RequestReviewModal
  key={`${reviewState?.action ?? "closed"}-${reviewState?.request.id ?? "none"}`}

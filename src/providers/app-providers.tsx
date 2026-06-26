@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Toaster } from "sonner";
 
 import { AuthProvider } from "@/features/auth/auth-provider";
+import { GlobalLoader } from "@/components/ui/feedback";
 import { ApiClientError } from "@/lib/api/client";
 import { PreferencesProvider } from "./preferences-provider";
 
@@ -41,6 +42,7 @@ export function AppProviders({ children, hasSessionCandidate }: AppProvidersProp
  <AuthProvider hasSessionCandidate={hasSessionCandidate}>
  <PreferencesProvider>
  {children}
+ <GlobalLoader />
  <Toaster
  position="top-right"
  richColors

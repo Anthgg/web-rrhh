@@ -1,8 +1,13 @@
 import axios from "axios";
+import { withGlobalLoading } from "@/store/loading-store";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 type PdfFilters = Record<string, string | number | boolean | null | undefined>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+ return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
 const cleanFilters = (filters: PdfFilters) =>
  Object.fromEntries(
@@ -32,15 +37,16 @@ export async function downloadCorporatePdf(
  endpointUrl: string,
  filename: string,
  filters: PdfFilters = {},
- customData?: any
+ customData?: unknown
 ) {
+ return withGlobalLoading(async () => {
  const token = getStoredAccessToken();
  const requestUrl = resolveRequestUrl(endpointUrl);
  const response = await axios.post(
  requestUrl,
  {
  filters: cleanFilters(filters),
- ...(customData ? customData : {})
+ ...(isRecord(customData) ? customData : {})
  },
  {
  headers: {
@@ -83,9 +89,15 @@ export async function downloadCorporatePdf(
  link.click();
  link.remove();
  window.URL.revokeObjectURL(url);
+ }, {
+ message: "Generando PDF corporativo...",
+ description: "Procesando informacion y preparando el archivo.",
+ variant: "processing",
+ });
 }
 
 export async function downloadPdfFile(endpointUrl: string, filename: string) {
+ return withGlobalLoading(async () => {
  const token = getStoredAccessToken();
  const requestUrl = resolveRequestUrl(endpointUrl);
  const response = await axios.get(requestUrl, {
@@ -128,21 +140,27 @@ export async function downloadPdfFile(endpointUrl: string, filename: string) {
  link.click();
  link.remove();
  window.URL.revokeObjectURL(url);
+ }, {
+ message: "Descargando PDF...",
+ description: "Preparando el documento solicitado.",
+ variant: "processing",
+ });
 }
 
 export async function downloadCorporateExcel(
  endpointUrl: string,
  filename: string,
  filters: PdfFilters = {},
- customData?: any
+ customData?: unknown
 ) {
+ return withGlobalLoading(async () => {
  const token = getStoredAccessToken();
  const requestUrl = resolveRequestUrl(endpointUrl);
  const response = await axios.post(
  requestUrl,
  {
  filters: cleanFilters(filters),
- ...(customData ? customData : {})
+ ...(isRecord(customData) ? customData : {})
  },
  {
  headers: {
@@ -185,4 +203,9 @@ export async function downloadCorporateExcel(
  link.click();
  link.remove();
  window.URL.revokeObjectURL(url);
+ }, {
+ message: "Generando Excel corporativo...",
+ description: "Procesando informacion y preparando el archivo.",
+ variant: "processing",
+ });
 }

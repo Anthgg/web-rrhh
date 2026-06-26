@@ -125,8 +125,8 @@ export function RequestChartsPanel({
  />
  ) : (
  <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
- <div className="h-[360px] rounded-[1.75rem] border border-white/10 bg-card/[0.03] p-4">
- <ResponsiveContainer width="100%" height="100%">
+ <div className="w-full min-w-0 h-[360px] rounded-[1.75rem] border border-white/10 bg-card/[0.03] p-4">
+ <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
  {chartKind === "pie" ? (
  <PieChart>
  <Pie data={chartData} dataKey="value" nameKey="label" innerRadius={72} outerRadius={112}>

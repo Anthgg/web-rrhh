@@ -35,13 +35,14 @@ interface SecurityCardProps {
  user: UserProfile;
  onChangePassword: (values: ChangePasswordInput) => Promise<void>;
  isPending: boolean;
+ activeSessionsCount?: number;
 }
 
-export function SecurityCard({ user, onChangePassword, isPending }: SecurityCardProps) {
+export function SecurityCard({ user, onChangePassword, isPending, activeSessionsCount }: SecurityCardProps) {
  const lastLogin = user.lastLoginAt 
  ? new Date(user.lastLoginAt).toLocaleString("es-PE", { timeZone: "America/Lima" }) 
  : "No registrado";
- const activeSessions = user.security?.active_sessions ?? 1;
+ const activeSessions = activeSessionsCount !== undefined ? activeSessionsCount : (user.security?.active_sessions ?? 1);
  const verifiedEmail = user.security?.email_verified ? "Verificado" : "Pendiente";
 
  const {

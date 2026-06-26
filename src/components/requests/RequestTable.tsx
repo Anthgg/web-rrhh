@@ -2,6 +2,7 @@ import { Paperclip } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
+import { getRequestDisplayStartDate, getRequestDisplayEndDate } from "@/lib/utils/requests";
 import type { RequestItem } from "@/types/requests";
 
 import { RequestActions } from "@/components/requests/RequestActions";
@@ -71,13 +72,13 @@ export function RequestTable({
  <span className="text-xs text-foreground-soft">{item.reason}</span>
  </div>
  </td>
- <td className="p-4 text-sm text-foreground">{formatDate(item.startDate)}</td>
- <td className="p-4 text-sm text-foreground">{formatDate(item.endDate)}</td>
+ <td className="p-4 text-sm text-foreground">{getRequestDisplayStartDate(item)}</td>
+ <td className="p-4 text-sm text-foreground">{getRequestDisplayEndDate(item) || "Sin fecha fin"}</td>
  <td className="p-4 text-sm text-foreground">
  {item.daysRequested ? `${item.daysRequested} dia(s)` : "No definido"}
  </td>
  <td className="p-4 text-sm text-foreground">
- <RequestStatusBadge status={item.status} />
+ <RequestStatusBadge status={item.status} statusLabel={item.statusLabel} />
  </td>
  <td className="p-4 text-sm text-foreground">
  {item.attachmentsCount > 0 ? (

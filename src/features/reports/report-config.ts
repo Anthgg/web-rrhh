@@ -96,12 +96,16 @@ export const REPORT_TEMPLATE_REPORT_TYPES = [
 ];
 
 export const REPORT_STATUS_OPTIONS = [
- { value: "", label: "Todos los estados" },
- { value: "pending", label: "Pendientes" },
- { value: "approved", label: "Aprobadas" },
- { value: "rejected", label: "Rechazadas" },
- { value: "observed", label: "Observadas" },
- { value: "cancelled", label: "Canceladas" },
+  { value: "", label: "Todos los estados" },
+  { value: "draft", label: "Borrador" },
+  { value: "pending", label: "Pendientes" },
+  { value: "pending_supervisor", label: "Pendiente Supervisor" },
+  { value: "pending_rrhh", label: "Pendiente RRHH" },
+  { value: "observed", label: "Observadas" },
+  { value: "approved", label: "Aprobadas" },
+  { value: "rejected", label: "Rechazadas" },
+  { value: "cancelled", label: "Canceladas" },
+  { value: "expired", label: "Expiradas" },
 ];
 
 export const REPORT_TABS: Array<{

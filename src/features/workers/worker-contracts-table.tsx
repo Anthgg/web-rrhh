@@ -82,27 +82,32 @@ export function WorkerContractsTable({ workerId }: WorkerContractsTableProps) {
  const contracts = useMemo(() => contractsData ?? [], [contractsData]);
  const uploadContractId = uploadContract ? getContractId(uploadContract) : "";
 
- const handleGeneratePdf = (contractId: string) => {
- generateMutation.mutate(contractId, {
- onSuccess: (response) => {
- const freshUrl =
- response.data?.pdf_url ||
- response.data?.download_url ||
- response.data?.generated_pdf_url ||
- "";
+  const handleGeneratePdf = (contractId: string) => {
+    generateMutation.mutate(contractId, {
+      onSuccess: (response) => {
+        const freshUrl =
+          response.data?.pdf_url ||
+          response.data?.download_url ||
+          response.data?.generated_pdf_url ||
+          "";
 
- if (freshUrl) {
- setLatestPdfUrls((current) => ({
- ...current,
- [contractId]: withPdfCacheBust(freshUrl),
- }));
- }
+        if (freshUrl) {
+          setLatestPdfUrls((current) => ({
+            ...current,
+            [contractId]: withPdfCacheBust(freshUrl),
+          }));
+        }
 
- toast.success("Contrato PDF generado correctamente.");
- },
- onError: (error) => toast.error(error instanceof Error ? error.message : "No se pudo generar el contrato."),
- });
- };
+        const code = response.data?.contract_code || response.data?.contractCode;
+        if (code) {
+          toast.success(`Contrato PDF generado correctamente (Código: ${code}).`);
+        } else {
+          toast.success("Contrato PDF generado correctamente.");
+        }
+      },
+      onError: (error) => toast.error(error instanceof Error ? error.message : "No se pudo generar el contrato."),
+    });
+  };
 
  const handleUploadSigned = () => {
  if (selectedFile && uploadContractId) {
@@ -190,10 +195,21 @@ export function WorkerContractsTable({ workerId }: WorkerContractsTableProps) {
  return (
  <tr key={contractId} className="align-middle">
  <td className="p-4 text-sm font-medium text-foreground">
- <div className="flex items-center gap-2">
- <FileText className="size-4 text-indigo-600" />
- {getContractType(contract)}
- </div>
+  <div className="flex flex-col gap-0.5">
+    <div className="flex items-center gap-2">
+      <FileText className="size-4 text-indigo-600" />
+      {getContractType(contract)}
+    </div>
+    {(contract.contract_code || contract.contractCode) ? (
+      <span className="text-xs text-foreground-soft font-normal ml-6">
+        Código: {contract.contract_code || contract.contractCode}
+      </span>
+    ) : (
+      <span className="text-xs text-foreground-soft font-normal ml-6">
+        Código: Pendiente
+      </span>
+    )}
+  </div>
  </td>
  <td className="p-4 text-sm text-foreground-soft">
  {formatDate(getCreatedDate(contract))}
@@ -218,7 +234,7 @@ export function WorkerContractsTable({ workerId }: WorkerContractsTableProps) {
  </a>
  <a
  href={generatedUrl}
- download
+ download={contract.file_name || contract.fileName || "contrato.pdf"}
  target="_blank"
  rel="noopener noreferrer"
  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-2xl border border-border bg-card px-3 text-xs font-semibold text-foreground transition hover:border-primary hover:text-primary"

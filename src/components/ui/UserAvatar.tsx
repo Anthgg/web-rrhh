@@ -57,18 +57,7 @@ export function UserAvatar({
  const [failedSrc, setFailedSrc] = useState<string | null>(null);
  const hasImageError = Boolean(normalizedSrc) && failedSrc === normalizedSrc;
 
- if (process.env.NODE_ENV === "development") {
-   console.log(`[UserAvatar DevLog] User: ${resolvedName || email || "Unknown"}`, {
-     receivedSrc: src,
-     normalizedSrc,
-     hasImageError,
-   });
- }
-
  const handleImageError = () => {
-   if (process.env.NODE_ENV === "development") {
-     console.warn(`[UserAvatar Error] Failed to load image for ${resolvedName || email || "Unknown"}. URL attempted:`, normalizedSrc);
-   }
    setFailedSrc(normalizedSrc ?? null);
  };
 

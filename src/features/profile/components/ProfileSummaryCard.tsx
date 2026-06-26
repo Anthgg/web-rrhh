@@ -6,6 +6,7 @@ import type { UserProfile } from "@/types";
 
 interface ProfileSummaryCardProps {
  user: UserProfile;
+ activeSessionsCount?: number;
 }
 
 /** Resolve crew display following the approved crew logic rules */
@@ -21,7 +22,7 @@ function resolveCrewDisplay(
  return "No registrado";
 }
 
-export function ProfileSummaryCard({ user }: ProfileSummaryCardProps) {
+export function ProfileSummaryCard({ user, activeSessionsCount }: ProfileSummaryCardProps) {
  const roleLabel = formatRole(user.role);
  const positionLabel = user.positionName || user.position || user.worker?.position || "No registrado";
  const departmentLabel = user.departmentName || user.department || user.worker?.department_name || "No registrado";
@@ -41,9 +42,10 @@ export function ProfileSummaryCard({ user }: ProfileSummaryCardProps) {
  })
  : "No registrado";
 
+ const count = activeSessionsCount !== undefined ? activeSessionsCount : user.security?.active_sessions;
  const activeSessionsLabel =
- user.security?.active_sessions !== null && user.security?.active_sessions !== undefined
- ? `${user.security.active_sessions} ${user.security.active_sessions === 1 ? "sesión" : "sesiones"}`
+ count !== null && count !== undefined
+ ? `${count} ${count === 1 ? "sesión" : "sesiones"}`
  : "No registrado";
 
  const items = [

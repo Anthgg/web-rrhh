@@ -4,10 +4,12 @@ import {
  Briefcase, Phone, AlertTriangle, CheckCircle2, Shield, Mail,
  MapPin, UserCheck, Clock, Building2, Users, ChevronRight, Info,
 } from "lucide-react";
-import type { UserProfile } from "@/types";
+import type { UserProfile, ProfileSession } from "@/types";
 import { ProfileSectionCard } from "./ProfileSectionCard";
 import { ProfileField } from "./ProfileField";
 import { formatRole } from "@/lib/utils/format";
+import { useQuery } from "@tanstack/react-query";
+import { getActiveSessions } from "@/services/profile.service";
 
 interface ProfileOverviewTabProps {
  user: UserProfile;
@@ -27,21 +29,27 @@ function resolveCrewDisplay(
 }
 
 export function ProfileOverviewTab({ user }: ProfileOverviewTabProps) {
- // ── Account / security data ────────────────────────────────────────────────
- const roleLabel = formatRole(user.role);
- const isActive = user.status === "active";
- const statusLabel = isActive ? "Activo" : user.status === "inactive" ? "Inactivo" : "No registrado";
+  const { data: sessions = [] } = useQuery<ProfileSession[]>({
+    queryKey: ["profile-sessions"],
+    queryFn: getActiveSessions,
+    staleTime: 30_000,
+  });
 
- const lastAccess = user.lastLoginAt
- ? new Date(user.lastLoginAt).toLocaleString("es-PE", {
- timeZone: "America/Lima",
- day: "2-digit", month: "short", year: "numeric",
- hour: "2-digit", minute: "2-digit",
- })
- : null; // null → ProfileField renders "—" / "No registrado"
+  // ── Account / security data ────────────────────────────────────────────────
+  const roleLabel = formatRole(user.role);
+  const isActive = user.status === "active";
+  const statusLabel = isActive ? "Activo" : user.status === "inactive" ? "Inactivo" : "No registrado";
 
- // Real values from backend — never hardcode a fallback
- const activeSessions = user.security?.active_sessions ?? null;
+  const lastAccess = user.lastLoginAt
+    ? new Date(user.lastLoginAt).toLocaleString("es-PE", {
+        timeZone: "America/Lima",
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      })
+    : null; // null → ProfileField renders "—" / "No registrado"
+
+  // Real values from backend — never hardcode a fallback
+  const activeSessions = sessions.length > 0 ? sessions.length : (user.security?.active_sessions ?? null);
  const isEmailVerified = user.security?.email_verified ?? null; // three-state: true | false | null
 
  // ── Labor data ────────────────────────────────────────────────────────────

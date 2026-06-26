@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { workerContractsService } from "@/services/workerContracts.service";
 import { getClientAccessToken } from "@/lib/auth/client-token";
 import { isUuid } from "@/lib/api/worker-ids";
+import { withGlobalLoading } from "@/store/loading-store";
 
 export const contractKeys = {
  all: (workerId: string) => ["worker-contracts", workerId] as const,
@@ -111,9 +112,11 @@ export const useGenerateContractPdf = (workerId: string) => {
  }
  },
  onSuccess: () => {
- // Invalida la caché para forzar un refetch de la tabla
- queryClient.invalidateQueries({ queryKey: contractKeys.all(workerId) });
- },
+    // Invalida la caché para forzar un refetch de la tabla y vistas relacionadas
+    queryClient.invalidateQueries({ queryKey: contractKeys.all(workerId) });
+    queryClient.invalidateQueries({ queryKey: ["worker-generated-documents", workerId] });
+    queryClient.invalidateQueries({ queryKey: ["onboarding-status", workerId] });
+  },
  });
 };
 
@@ -121,6 +124,7 @@ export const useGenerateContractPdf = (workerId: string) => {
 export const useDownloadContractPdf = () => {
  return useMutation({
  mutationFn: async (contractId: string) => {
+ return withGlobalLoading(async () => {
  const accessToken = getClientAccessToken();
  const response = await fetch(`/api/contracts/${contractId}/download`, {
  method: "GET",
@@ -160,6 +164,11 @@ export const useDownloadContractPdf = () => {
  link.parentNode?.removeChild(link);
  window.URL.revokeObjectURL(url);
  }, 100);
+ }, {
+ message: "Descargando contrato...",
+ description: "Preparando el PDF del trabajador.",
+ variant: "processing",
+ });
  },
  });
 };

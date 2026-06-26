@@ -13,6 +13,7 @@ export async function GET() {
       accessToken: context.accessToken,
       refreshToken: context.refreshToken,
     });
+
     return jsonResponse(response.data);
   } catch (error) {
     return handleRouteError(error);

@@ -22,15 +22,15 @@ export function ReportCard({
  isLoading?: boolean;
 }) {
  return (
- <Card className="grid gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm dark:border-border dark:bg-foreground">
+ <Card className="grid gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm">
  <div className="flex items-start gap-4">
- <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
- <Icon className="size-5" />
- </div>
- <div className="grid gap-1">
- <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{title}</h3>
- <p className="text-sm leading-6 text-muted-foreground ">{description}</p>
- </div>
+  <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+  <Icon className="size-5" />
+  </div>
+  <div className="grid gap-1">
+  <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+  <p className="text-sm leading-6 text-muted-foreground ">{description}</p>
+  </div>
  </div>
 
  <div className="grid gap-4">{children}</div>
@@ -38,7 +38,7 @@ export function ReportCard({
  <Button
  onClick={onDownload}
  disabled={isLoading}
- className="h-11 rounded-xl bg-blue-900 text-white shadow transition-all hover:scale-[1.01] hover:bg-blue-950 disabled:cursor-not-allowed disabled:opacity-60"
+  className="h-11 rounded-xl bg-primary text-primary-foreground shadow transition-all hover:scale-[1.01] hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
  >
  {isLoading ? (
  <>

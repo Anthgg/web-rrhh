@@ -111,7 +111,7 @@ export function parseDeviceInfo(
   const isIdentified = Boolean(browser || os);
 
   // Format final label
-  let label = "Dispositivo no identificado";
+  let label = "Dispositivo desconocido";
   if (browser && os) {
     label = `${os} · ${browser}`;
   } else if (os) {

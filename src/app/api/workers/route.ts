@@ -8,11 +8,13 @@ import { getCatalogs, populateWorkerData } from "@/lib/api/workers-helper";
 export async function GET(request: Request) {
  try {
  const url = new URL(request.url);
+ const paging = getPagingParams(url.searchParams);
  const filters = {
  search: url.searchParams.get("search") ?? undefined,
  status: url.searchParams.get("status") ?? undefined,
  project: url.searchParams.get("project") ?? undefined,
- ...getPagingParams(url.searchParams),
+ page: paging.page,
+ limit: paging.pageSize,
  };
 
  const context = await getSessionContext();

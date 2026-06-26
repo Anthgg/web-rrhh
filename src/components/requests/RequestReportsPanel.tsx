@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, Filter } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -9,7 +9,14 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { FieldFrame, Input, Select } from "@/components/ui/fields";
 import { requestReportColumnsCatalog } from "@/features/requests/requests-config";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
+import {
+ buildRequestReportPreviewRow,
+ getRequestReportColumnDefinition,
+ normalizeRequestReportColumnSelection,
+ getObjectValue,
+ resolveRequestReportColumnKey,
+ getCanonicalKey,
+} from "@/features/requests/reports/request-report-columns";
 import { requestStatusLabels, requestStatusOptions } from "@/lib/utils/requests";
 import { downloadReportPdf } from "@/services/reports/downloadReportPdf";
 import { requestsService } from "@/services/requests.service";
@@ -22,6 +29,7 @@ import type {
  RequestReportColumn,
  RequestReportDownloadFormat,
  RequestReportFilters,
+ RequestReportRow,
  RequestScope,
  RequestType,
 } from "@/types/requests";
@@ -55,25 +63,6 @@ function getDefaultSelectedColumns(columns: RequestReportColumn[]) {
  return defaults.length ? defaults : columns.slice(0, 8).map((column) => column.id);
 }
 
-function formatPreviewCellValue(columnId: string, value: string) {
- if (!value || value === "-") return "-";
-
- if (columnId === "status") {
- const normalizedStatus = value.trim().toLowerCase();
- return requestStatusLabels[normalizedStatus as keyof typeof requestStatusLabels] ?? value;
- }
-
- if (["createdAt", "approvedAt", "created_at", "approved_at"].includes(columnId)) {
- return formatDateTime(value);
- }
-
- if (["startDate", "endDate", "start_date", "end_date"].includes(columnId)) {
- return formatDate(value);
- }
-
- return value;
-}
-
 function getErrorMessage(error: unknown) {
  return error instanceof Error ? error.message : "No se pudo completar la operacion.";
 }
@@ -92,19 +81,22 @@ function getStringValue(record: Record<string, unknown>, key: string) {
 }
 
 function getTemplateStatus(value: unknown): RequestReportFilters["status"] {
- const allowedStatuses = new Set<RequestReportFilters["status"]>([
- "all",
- "draft",
- "pending",
- "approved",
- "observed",
- "rejected",
- "cancelled",
- "resubmitted",
- "unknown",
- ]);
+  const allowedStatuses = new Set<RequestReportFilters["status"]>([
+    "all",
+    "draft",
+    "pending",
+    "pending_supervisor",
+    "pending_rrhh",
+    "approved",
+    "observed",
+    "rejected",
+    "cancelled",
+    "expired",
+    "resubmitted",
+    "unknown",
+  ]);
 
- return typeof value === "string" && allowedStatuses.has(value as RequestReportFilters["status"]) ? value as RequestReportFilters["status"] : "all";
+  return typeof value === "string" && allowedStatuses.has(value as RequestReportFilters["status"]) ? value as RequestReportFilters["status"] : "all";
 }
 
 export function RequestReportsPanel({
@@ -119,30 +111,20 @@ export function RequestReportsPanel({
  const [debouncedFilters, setDebouncedFilters] = useState<RequestReportFilters>(initialFilters);
  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
  const [saveModalOpen, setSaveModalOpen] = useState(false);
-
- const prevQuickFieldsRef = useRef({
- dateFrom: filters.dateFrom,
- dateTo: filters.dateTo,
- typeId: filters.typeId,
- status: filters.status,
- });
- const prevQuickFields = prevQuickFieldsRef.current;
-
- const quickFieldsChanged =
- filters.dateFrom !== prevQuickFields.dateFrom ||
- filters.dateTo !== prevQuickFields.dateTo ||
- filters.typeId !== prevQuickFields.typeId ||
- filters.status !== prevQuickFields.status;
-
- if (quickFieldsChanged) {
- prevQuickFieldsRef.current = {
- dateFrom: filters.dateFrom,
- dateTo: filters.dateTo,
- typeId: filters.typeId,
- status: filters.status,
- };
- setDebouncedFilters(filters);
+ const [selectedColumns, setSelectedColumns] = useState<string[]>(() =>
+ getDefaultSelectedColumns(requestReportColumnsCatalog),
+ );
+ const applyUrlTemplateState = useEffectEvent((nextState: {
+ templateId: string;
+ filters: RequestReportFilters;
+ columns?: string[] | null;
+ }) => {
+ setSelectedTemplateId(nextState.templateId);
+ setFilters(nextState.filters);
+ if (nextState.columns?.length) {
+ setSelectedColumns(nextState.columns);
  }
+ });
 
  useEffect(() => {
  const timer = setTimeout(() => {
@@ -177,17 +159,18 @@ export function RequestReportsPanel({
  () => (reportColumns?.length ? reportColumns : requestReportColumnsCatalog),
  [reportColumns],
  );
- const [selectedColumns, setSelectedColumns] = useState<string[]>(() =>
- getDefaultSelectedColumns(requestReportColumnsCatalog),
- );
  const effectiveSelectedColumns = useMemo(() => {
  const availableIds = new Set(availableColumns.map((column) => column.id));
- const nextSelection = selectedColumns.filter((columnId) => availableIds.has(columnId));
+ const normalizedSelection = normalizeRequestReportColumnSelection(selectedColumns, availableColumns);
+ const nextSelection = normalizedSelection.filter((columnId) => availableIds.has(columnId));
  return nextSelection.length ? nextSelection : getDefaultSelectedColumns(availableColumns);
  }, [availableColumns, selectedColumns]);
 
  const selectedColumnDefinitions = useMemo(
- () => availableColumns.filter((column) => effectiveSelectedColumns.includes(column.id)),
+ () =>
+ availableColumns
+ .filter((column) => effectiveSelectedColumns.includes(column.id))
+ .map(getRequestReportColumnDefinition),
  [availableColumns, effectiveSelectedColumns],
  );
 
@@ -204,18 +187,29 @@ export function RequestReportsPanel({
  placeholderData: keepPreviousData,
  });
 
- const previewRows = useMemo(
- () =>
- (preview?.items ?? []).map((item) =>
- Object.fromEntries(
- effectiveSelectedColumns.map((columnId) => [
- columnId,
- formatPreviewCellValue(columnId, item.values[columnId] ?? "-"),
- ]),
- ),
- ),
- [effectiveSelectedColumns, preview?.items],
- );
+ const previewRows = useMemo(() => {
+    if (!preview) return [];
+
+    const rawRows = Array.isArray(preview.data)
+      ? preview.data
+      : isRecord(preview) && Array.isArray(preview.items)
+      ? preview.items
+      : [];
+
+    return rawRows.map((item: unknown) => {
+      if (isRecord(item) && item.values) {
+        return buildRequestReportPreviewRow(item as unknown as RequestReportRow, effectiveSelectedColumns);
+      }
+      
+      const itemRecord = isRecord(item) ? item : {};
+      const newRow: Record<string, string> = {};
+      for (const col of effectiveSelectedColumns) {
+        const val = itemRecord[col] ?? itemRecord[resolveRequestReportColumnKey(col)] ?? getObjectValue(itemRecord, col);
+        newRow[col] = val !== null && val !== undefined && val !== "" ? String(val) : "-";
+      }
+      return newRow;
+    });
+  }, [effectiveSelectedColumns, preview]);
 
  const downloadMutation = useMutation({
  mutationFn: async (format: RequestReportDownloadFormat) => {
@@ -276,24 +270,21 @@ export function RequestReportsPanel({
  });
 
  if (template.columns?.length) {
- setSelectedColumns(template.columns);
+ setSelectedColumns(normalizeRequestReportColumnSelection(template.columns, availableColumns));
  }
  toast.success(`Plantilla "${template.name}" aplicada.`);
- }, [templates]);
+ }, [availableColumns, setSelectedColumns, templates]);
 
- const prevUrlTemplateIdRef = useRef(urlTemplateId);
- const prevTemplatesDataRef = useRef(templates);
+ const appliedUrlTemplateIdRef = useRef<string | null>(null);
 
- if (urlTemplateId !== prevUrlTemplateIdRef.current || templates !== prevTemplatesDataRef.current) {
- prevUrlTemplateIdRef.current = urlTemplateId;
- prevTemplatesDataRef.current = templates;
-
+ useEffect(() => {
+ if (urlTemplateId === appliedUrlTemplateIdRef.current) return;
  if (urlTemplateId && templates?.some((entry) => entry.id === urlTemplateId)) {
  const template = templates.find((entry) => entry.id === urlTemplateId);
  if (template) {
- setSelectedTemplateId(template.id);
+ appliedUrlTemplateIdRef.current = urlTemplateId;
  const tFilters = isRecord(template.filters) ? template.filters : {};
- setFilters({
+ const nextFilters = {
  dateFrom: getStringValue(tFilters, "dateFrom"),
  dateTo: getStringValue(tFilters, "dateTo"),
  typeId: getStringValue(tFilters, "typeId") || getStringValue(tFilters, "requestType"),
@@ -305,14 +296,21 @@ export function RequestReportsPanel({
  search: getStringValue(tFilters, "search"),
  page: 1,
  pageSize: 50,
- });
+ };
+ const nextColumns = template.columns?.length
+ ? normalizeRequestReportColumnSelection(template.columns, availableColumns)
+ : null;
 
- if (template.columns?.length) {
- setSelectedColumns(template.columns);
+ queueMicrotask(() => {
+ applyUrlTemplateState({
+ templateId: template.id,
+ filters: nextFilters,
+ columns: nextColumns,
+ });
+ });
  }
  }
- }
- }
+ }, [availableColumns, templates, urlTemplateId]);
 
  const filtersSummary = useMemo(() => {
  const summary: string[] = [];
@@ -497,14 +495,15 @@ export function RequestReportsPanel({
  <ReportColumnSelector
  columns={availableColumns}
  selectedColumns={effectiveSelectedColumns}
- onToggleColumn={(columnId) =>
+ onToggleColumn={(columnId) => {
+ const canonicalKey = getCanonicalKey(columnId);
  setSelectedColumns((current) =>
- current.includes(columnId)
- ? current.filter((item) => item !== columnId)
- : [...current, columnId],
- )
- }
- onSelectAll={() => setSelectedColumns(availableColumns.map((column) => column.id))}
+ current.includes(canonicalKey)
+ ? current.filter((item) => item !== canonicalKey)
+ : [...current, canonicalKey]
+ );
+ }}
+ onSelectAll={() => setSelectedColumns(availableColumns.map((column) => getCanonicalKey(column.id)))}
  onClearSelection={() => setSelectedColumns([])}
  />
 

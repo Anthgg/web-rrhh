@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   turbopack: {
     root: rootDirectory,
+    resolveAlias: {
+      "sonner": "./src/lib/sonner-compat.ts",
+    },
   },
 };
 

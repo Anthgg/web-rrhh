@@ -1,12 +1,15 @@
 export type RequestStatus =
- | "draft"
- | "pending"
- | "approved"
- | "observed"
- | "rejected"
- | "cancelled"
- | "resubmitted"
- | "unknown";
+  | "draft"
+  | "pending"
+  | "pending_supervisor"
+  | "pending_rrhh"
+  | "observed"
+  | "approved"
+  | "rejected"
+  | "cancelled"
+  | "expired"
+  | "resubmitted"
+  | "unknown";
 
 export type RequestReviewDecision = "approve" | "observe" | "reject";
 
@@ -43,14 +46,38 @@ export type RequestTimelineAction =
  | "commented"
  | "unknown";
 
+/**
+ * Canonical leave categories sent as `type` in POST /api/requests.
+ * PERSONAL_PERMISSION is a legacy alias — always normalise to UNPAID_LEAVE.
+ */
+export type LeaveRequestType = "VACATION" | "MEDICAL_LEAVE" | "UNPAID_LEAVE";
+
+/** Map a raw backend code/type to the canonical LeaveRequestType */
+export function normalizeLeaveType(raw: unknown): LeaveRequestType | undefined {
+  if (typeof raw !== "string") return undefined;
+  const up = raw.toUpperCase().trim();
+  if (up === "VACATION" || up === "VACACIONES") return "VACATION";
+  if (up === "MEDICAL_LEAVE" || up === "DESCANSO_MEDICO" || up === "MEDICAL") return "MEDICAL_LEAVE";
+  if (
+    up === "UNPAID_LEAVE" ||
+    up === "PERSONAL_PERMISSION" ||
+    up === "PERMISO_PERSONAL" ||
+    up === "UNPAID"
+  )
+    return "UNPAID_LEAVE";
+  return undefined;
+}
+
 export interface RequestType {
- id: string;
- code?: string;
- name: string;
- description?: string;
- active: boolean;
- requiresEndDate?: boolean;
- allowsAttachment?: boolean;
+  id: string;
+  code?: string;
+  /** Canonical leave category — present only for leave-related request types */
+  type?: LeaveRequestType;
+  name: string;
+  description?: string;
+  active: boolean;
+  requiresEndDate?: boolean;
+  allowsAttachment?: boolean;
 }
 
 export interface RequestAttachment {
@@ -67,13 +94,21 @@ export interface RequestAttachment {
 }
 
 export interface RequestUserSummary {
- id?: string;
- fullName: string;
- email?: string;
- department?: string;
- position?: string;
- project?: string;
- avatarUrl?: string;
+  id?: string;
+  fullName: string;
+  email?: string;
+  department?: string;
+  position?: string;
+  project?: string;
+  avatarUrl?: string;
+  employeeCode?: string;
+  phone?: string;
+  departmentName?: string;
+  areaName?: string;
+  projectName?: string;
+  workLocationName?: string;
+  positionName?: string;
+  status?: string;
 }
 
 export interface RequestReviewHistoryItem {
@@ -87,14 +122,23 @@ export interface RequestReviewHistoryItem {
  createdAt: string;
 }
 
+export interface VacationBalanceSnapshot {
+  availableDaysAtRequest: number;
+  requestedDays: number;
+  projectedAvailableDays: number;
+  exceedsAvailableBalance: boolean;
+  requiresManagerOverride: boolean;
+}
+
 export interface RequestItem {
- id: string;
- code: string;
- workerId?: string;
- requestTypeId?: string;
- typeName: string;
- status: RequestStatus;
- requester: RequestUserSummary;
+  id: string;
+  code: string;
+  workerId?: string;
+  requestTypeId?: string;
+  typeName: string;
+  status: RequestStatus;
+  statusLabel?: string;
+  requester: RequestUserSummary;
  reason: string;
  reviewComment?: string;
  approvedBy?: string;
@@ -111,12 +155,25 @@ export interface RequestItem {
  canReview: boolean;
  canResubmit: boolean;
  source: "api" | "mock";
+ requiresBalanceOverride?: boolean;
+ vacationBalance?: VacationBalanceSnapshot;
+ startCalendarDateTime?: string;
+ endCalendarDateTime?: string;
+ startCalendarDate?: string;
+ endCalendarDate?: string;
+ startDisplayDate?: string;
+ endDisplayDate?: string;
+ startDateKey?: string;
+ endDateKey?: string;
+ start_date?: string;
+ end_date?: string;
 }
 
 export interface RequestDetail extends RequestItem {
- attachments: RequestAttachment[];
- reviewHistory: RequestReviewHistoryItem[];
- metadata?: Record<string, string | number | boolean | null>;
+  attachments: RequestAttachment[];
+  reviewHistory: RequestReviewHistoryItem[];
+  metadata?: Record<string, string | number | boolean | null>;
+  generatedRequestDocument?: RequestAttachment | null;
 }
 
 export interface RequestStats {
@@ -145,12 +202,21 @@ export interface RequestListFilters {
 }
 
 export interface CreateRequestPayload {
- requestTypeId: string;
- startDate: string;
- endDate?: string;
- reason: string;
- documents?: File[];
+  requestTypeId: string;
+  startDate: string;
+  endDate?: string;
+  reason: string;
+  documents?: File[];
 }
+
+/**
+ * NOTE: The form always sends `requestTypeId` (the UUID from the catalog).
+ * The `type`/`code` fields on RequestType are used ONLY for UI decisions:
+ * - Showing the vacation balance card
+ * - Requiring an end date
+ * - Applying status colors and labels
+ * Do NOT send both `requestTypeId` and `type` in the same payload.
+ */
 
 export interface UpdateRequestPayload {
  requestTypeId?: string;

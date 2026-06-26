@@ -22,10 +22,10 @@ import { CorporatePreview } from "@/components/settings/company/CorporatePreview
 import { LegalInfoForm } from "@/components/settings/company/LegalInfoForm";
 import { OfficialFilesManager } from "@/components/settings/company/OfficialFilesManager";
 import { SettingsStatusCard } from "@/components/settings/company/SettingsStatusCard";
-import { CompanySettingsSkeleton } from "@/components/settings/company/CompanySettingsSkeleton";
 import { OperationalRulesForm } from "@/components/settings/company/OperationalRulesForm";
 import { ErrorState } from "@/components/shared/states";
 import { Card } from "@/components/ui/card";
+import { PageLoader } from "@/components/ui/feedback";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useOfficialFileUpload } from "@/hooks/useOfficialFileUpload";
 import { formatDateTime } from "@/lib/utils/format";
@@ -116,31 +116,31 @@ function buildSummaryCards(completion: CompanyCompletion): SummaryCardConfig[] {
 }
 
 function CompanyDirtyBanner() {
- return (
- <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm sm:flex-row sm:items-center sm:justify-between">
- <div className="flex items-start gap-3">
- <Save className="mt-0.5 size-4 shrink-0" />
- <p>
- Cambios pendientes sin guardar. El boton principal permanecera disponible al hacer scroll.
- </p>
- </div>
- <span className="text-xs font-semibold uppercase tracking-[0.14em]">
- Pendiente
- </span>
- </div>
- );
+  return (
+  <div className="flex flex-col gap-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+  <div className="flex items-start gap-3">
+  <Save className="mt-0.5 size-4 shrink-0" />
+  <p>
+  Cambios pendientes sin guardar. El boton principal permanecera disponible al hacer scroll.
+  </p>
+  </div>
+  <span className="text-xs font-semibold uppercase tracking-[0.14em]">
+  Pendiente
+  </span>
+  </div>
+  );
 }
 
 function CompanySettingsErrorBanner({ error }: { error: string }) {
- return (
- <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
- <AlertCircle className="mt-0.5 size-4 shrink-0" />
- <div className="grid gap-1">
- <p className="font-semibold">Incidente reciente</p>
- <p>{error}</p>
- </div>
- </div>
- );
+  return (
+  <div className="flex items-start gap-3 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+  <div className="grid gap-1">
+  <p className="font-semibold">Incidente reciente</p>
+  <p>{error}</p>
+  </div>
+  </div>
+  );
 }
 
 function CompanySettingsSummary({
@@ -151,43 +151,43 @@ function CompanySettingsSummary({
  summaryCards: SummaryCardConfig[];
 }) {
  return (
- <Card className="grid content-start gap-6 rounded-lg border-border bg-card p-5 shadow-sm">
- <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
- <div className="grid gap-2">
- <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
- <ShieldCheck className="size-3.5" />
- Resumen
- </span>
- <div className="grid gap-1">
- <h2 className="section-title text-xl font-semibold text-foreground">
- Estado general de configuracion
- </h2>
- <p className="max-w-3xl text-sm leading-6 text-foreground-soft">
- Revisa que los datos legales, colores y archivos oficiales esten listos para generar documentos.
- </p>
- </div>
- </div>
+  <Card className="grid content-start gap-6 rounded-lg border-border bg-card p-5 shadow-sm">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+  <div className="grid gap-2">
+  <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-400">
+  <ShieldCheck className="size-3.5" />
+  Resumen
+  </span>
+  <div className="grid gap-1">
+  <h2 className="section-title text-xl font-semibold text-foreground">
+  Estado general de configuracion
+  </h2>
+  <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+  Revisa que los datos legales, colores y archivos oficiales esten listos para generar documentos.
+  </p>
+  </div>
+  </div>
 
- <div className="min-w-[180px] rounded-lg border border-border bg-muted p-4">
- <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground-soft">
- Progreso
- </p>
- <div className="mt-2 flex items-end gap-2">
- <span className="text-3xl font-semibold text-foreground">
- {completion.completedCount}
- </span>
- <span className="pb-1 text-sm text-foreground-soft">/ {completion.totalCount}</span>
- </div>
- <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
- <div
- className="h-full rounded-full bg-emerald-500 transition-all duration-300"
- style={{
- width: `${(completion.completedCount / completion.totalCount) * 100}%`,
- }}
- />
- </div>
- </div>
- </div>
+  <div className="min-w-[180px] rounded-lg border border-border bg-muted p-4">
+  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+  Progreso
+  </p>
+  <div className="mt-2 flex items-end gap-2">
+  <span className="text-3xl font-semibold text-foreground">
+  {completion.completedCount}
+  </span>
+  <span className="pb-1 text-sm text-muted-foreground">/ {completion.totalCount}</span>
+  </div>
+  <div className="mt-3 h-2 overflow-hidden rounded-full bg-border">
+  <div
+  className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+  style={{
+  width: `${(completion.completedCount / completion.totalCount) * 100}%`,
+  }}
+  />
+  </div>
+  </div>
+  </div>
 
  <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
  {summaryCards.map((card) => (
@@ -291,7 +291,12 @@ export function CompanySettingsPage() {
  const summaryCards = useMemo(() => buildSummaryCards(completion), [completion]);
 
  if (isLoading) {
- return <CompanySettingsSkeleton />;
+ return (
+ <PageLoader
+ title="Cargando configuracion corporativa..."
+ description="Estamos obteniendo la informacion de empresa."
+ />
+ );
  }
 
  if (!hasLoaded && error) {

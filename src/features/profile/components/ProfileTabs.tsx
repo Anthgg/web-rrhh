@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-export type ProfileTabType = "overview" | "personal" | "labor" | "security" | "preferences" | "activity";
+export type ProfileTabType = "overview" | "personal" | "labor" | "schedule" | "security" | "preferences" | "activity";
 
 export interface TabItem {
  id: ProfileTabType;

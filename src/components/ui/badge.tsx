@@ -15,9 +15,9 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
  "border-transparent bg-muted text-foreground hover:bg-muted/80": variant === "secondary",
  "border-transparent bg-rose-500 text-slate-50 hover:bg-rose-500/80": variant === "destructive",
  "text-slate-950 border-border": variant === "outline",
- "border-transparent bg-emerald-100 text-emerald-800 hover:bg-emerald-100/80": variant === "success",
- "border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100/80": variant === "warning",
- "border-transparent bg-indigo-100 text-indigo-800 hover:bg-indigo-100/80": variant === "info",
+ "border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20": variant === "success",
+ "border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20": variant === "warning",
+ "border-transparent bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/20": variant === "info",
  },
  className
  )}

@@ -1,6 +1,18 @@
 import { ApiClientError, apiClient } from "@/lib/api/client";
 import { normalizeCrewWorkerItem } from "@/lib/api/normalizers";
+import { withGlobalLoading } from "@/store/loading-store";
 import type { CrewWorkerItem } from "@/types";
+
+type WorkCrewReportPayload = Record<string, unknown>;
+type WorkCrewReportColumn = Record<string, unknown>;
+interface WorkCrewReportPreview {
+ data: Array<Record<string, unknown>>;
+ total?: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+ return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
 function resolveDownloadFileName(
  disposition: string | null,
@@ -18,6 +30,7 @@ function resolveDownloadFileName(
 }
 
 async function downloadFilePost(endpoint: string, body: unknown, fallbackFileName: string) {
+ return withGlobalLoading(async () => {
  const token = typeof window !== "undefined" ? (window.localStorage.getItem("token") || window.localStorage.getItem("accessToken") || window.sessionStorage.getItem("token") || window.sessionStorage.getItem("accessToken")) : null;
  const headers: Record<string, string> = {
  "Content-Type": "application/json",
@@ -56,6 +69,11 @@ async function downloadFilePost(endpoint: string, body: unknown, fallbackFileNam
  anchor.click();
  anchor.remove();
  window.URL.revokeObjectURL(url);
+ }, {
+ message: "Generando reporte de cuadrillas...",
+ description: "Procesando movimientos y preparando la descarga.",
+ variant: "processing",
+ });
 }
 
 
@@ -172,8 +190,12 @@ export const workCrewsService = {
  }),
 
  getWorkCrewWorkers: async (id: string): Promise<CrewWorkerItem[]> => {
- const res = await apiClient<any>(`/api/work-crews/${id}/workers`);
- const rawArray = Array.isArray(res) ? res : res?.data ?? [];
+ const res = await apiClient<unknown>(`/api/work-crews/${id}/workers`);
+ const rawArray = Array.isArray(res)
+ ? res
+ : isRecord(res) && Array.isArray(res.data)
+ ? res.data
+ : [];
  return rawArray.map(normalizeCrewWorkerItem);
  },
 
@@ -190,15 +212,15 @@ export const workCrewsService = {
  }),
 
  getReportColumns: () =>
- apiClient<any[]>("/api/reports/work-crews/columns"),
+ apiClient<WorkCrewReportColumn[]>("/api/reports/work-crews/columns"),
 
- getReportPreview: (payload: any) =>
- apiClient<any>("/api/reports/work-crews/preview", {
+ getReportPreview: (payload: WorkCrewReportPayload) =>
+ apiClient<WorkCrewReportPreview>("/api/reports/work-crews/preview", {
  method: "POST",
  body: JSON.stringify(payload),
  }),
 
- downloadReport: (format: "pdf" | "excel", payload: any) => {
+ downloadReport: (format: "pdf" | "excel", payload: WorkCrewReportPayload) => {
  const endpoint = format === "pdf" ? "/api/reports/work-crews/export/pdf" : "/api/reports/work-crews/export/excel";
  return downloadFilePost(
  endpoint,

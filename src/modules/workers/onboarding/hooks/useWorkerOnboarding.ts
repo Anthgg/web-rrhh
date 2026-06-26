@@ -633,6 +633,11 @@ export function useWorkerOnboarding() {
  forcePasswordChange: true,
  sendCredentialsByEmail: true,
  },
+ requiredDocuments: [
+ { type: "DNI", title: "DNI" },
+ { type: "CV", title: "CV" },
+ { type: "MEDICAL_CERTIFICATE", title: "Certificado médico" },
+ ],
  },
  });
 
@@ -1133,6 +1138,7 @@ export function useWorkerOnboarding() {
  : {
  createAccess: false,
  },
+ requiredDocuments: data.requiredDocuments || [],
  };
 
  if (process.env.NODE_ENV !== "production") {

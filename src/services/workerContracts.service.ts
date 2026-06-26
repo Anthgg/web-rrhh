@@ -22,6 +22,8 @@ export interface WorkerContractRecord {
  signedFileUrl?: string | null;
  download_url?: string | null;
  downloadUrl?: string | null;
+ contract_code?: string;
+ contractCode?: string;
 }
 
 interface ContractListEnvelope {
@@ -40,6 +42,8 @@ export interface ContractGenerateResponse {
  generated_pdf_url?: string | null;
  signed_file_url?: string | null;
  download_url?: string | null;
+ contract_code?: string | null;
+ contractCode?: string | null;
  };
 }
 

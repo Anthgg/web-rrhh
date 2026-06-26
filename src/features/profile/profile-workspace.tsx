@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { LayoutDashboard, User, Briefcase, Shield, Settings, History } from "lucide-react";
+import { LayoutDashboard, User, Briefcase, Shield, Settings, History, Clock } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "@/features/auth/auth-provider";
 
 import { ErrorState, LoadingPanel } from "@/components/shared/states";
@@ -25,6 +26,7 @@ import { ProfileLaborTab } from "./components/ProfileLaborTab";
 import { ProfileSecurityTab } from "./components/ProfileSecurityTab";
 import { ProfilePreferencesTab } from "./components/ProfilePreferencesTab";
 import { ProfileActivityTab } from "./components/ProfileActivityTab";
+import { ProfileScheduleTab } from "./components/ProfileScheduleTab";
 import { PageContainer } from "@/components/layout/page-container";
 
 // ─── Validation schema for the editable profile form ──────────────────────────
@@ -64,6 +66,7 @@ const tabsConfig: TabItem[] = [
  { id: "overview", label: "Resumen", icon: <LayoutDashboard className="size-4" /> },
  { id: "personal", label: "Datos Personales", icon: <User className="size-4" /> },
  { id: "labor", label: "Ficha Laboral", icon: <Briefcase className="size-4" /> },
+ { id: "schedule", label: "Mi Horario", icon: <Clock className="size-4" /> },
  { id: "security", label: "Seguridad", icon: <Shield className="size-4" /> },
  { id: "preferences", label: "Preferencias", icon: <Settings className="size-4" /> },
  { id: "activity", label: "Actividad", icon: <History className="size-4" /> },
@@ -72,7 +75,29 @@ const tabsConfig: TabItem[] = [
 export function ProfileWorkspace() {
  const queryClient = useQueryClient();
  const { refreshSession } = useSession();
- const [activeTab, setActiveTab] = useState<ProfileTabType>("overview");
+ const searchParams = useSearchParams();
+ const tabParam = searchParams.get("tab");
+ const [activeTab, setActiveTab] = useState<ProfileTabType>(
+  (tabParam as ProfileTabType) ?? "overview"
+ );
+
+ useEffect(() => {
+  const tab = searchParams.get("tab");
+  if (
+  tab &&
+  [
+  "overview",
+  "personal",
+  "labor",
+  "schedule",
+  "security",
+  "preferences",
+  "activity",
+  ].includes(tab)
+  ) {
+  setActiveTab(tab as ProfileTabType);
+  }
+ }, [searchParams]);
 
  // ── Load profile ────────────────────────────────────────────────────────────
  const {
@@ -80,6 +105,7 @@ export function ProfileWorkspace() {
  isLoading: isProfileLoading,
  isError: isProfileError,
  refetch: refetchProfile,
+ isFetching: isProfileFetching,
  } = useQuery({
  queryKey: ["profile", "current"],
  queryFn: getCurrentProfile,
@@ -296,6 +322,8 @@ export function ProfileWorkspace() {
  )}
 
  {activeTab === "labor" && <ProfileLaborTab user={profileData} />}
+
+ {activeTab === "schedule" && <ProfileScheduleTab />}
 
  {activeTab === "security" && (
  <ProfileSecurityTab

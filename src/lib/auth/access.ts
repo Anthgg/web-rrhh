@@ -1,6 +1,7 @@
 import { type UserRole } from "@/types";
 
 const routeAccessConfig: Record<string, readonly UserRole[]> = {
+ "/change-password": ["worker", "supervisor", "admin", "hr"],
  "/dashboard/settings/company": ["admin", "super_admin", "hr"],
  "/estructura": ["admin", "hr"],
  "/equipos-de-trabajo": ["supervisor", "admin", "hr"],
@@ -17,6 +18,7 @@ const routeAccessConfig: Record<string, readonly UserRole[]> = {
  "/reportes": ["worker", "supervisor", "admin", "hr"],
  "/perfil": ["worker", "supervisor", "admin", "hr"],
  "/roles": ["admin", "hr"],
+ "/dashboard/schedule": ["admin", "hr"],
 };
 
 export const protectedRoutePrefixes = Object.keys(routeAccessConfig).sort(
@@ -40,6 +42,7 @@ export const routeLabels: Record<string, string> = {
  "/reportes": "Reportes",
  "/perfil": "Perfil",
  "/roles": "Roles y permisos",
+ "/dashboard/schedule": "Horarios y Asistencia",
 };
 
 export function getRouteKey(pathname: string) {

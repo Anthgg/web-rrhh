@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, BriefcaseBusiness, Mail, Phone, UserRound } from "lucide-react";
+import { ArrowLeft, BriefcaseBusiness, Mail, Phone } from "lucide-react";
 import Link from "next/link";
 
 import { PageHeader } from "@/components/shared/page-header";
@@ -17,17 +17,25 @@ import { WorkerContractsTable } from "@/features/workers/worker-contracts-table"
 import { LaborAssignmentForm } from "@/features/workers/labor-assignment-form";
 import { useDownloadWorkerLocationHistoryPdf } from "@/hooks/useDownloadWorkerLocationHistoryPdf";
 import { isUuid } from "@/lib/api/worker-ids";
+import { WorkerDevicesTab } from "@/features/workers/worker-devices-tab";
+
+type LocationAssignmentInfo = {
+  source?: string | null;
+  work_location?: { name?: string | null } | null;
+  assignment?: { end_date?: string | null; reason?: string | null } | null;
+};
 
 interface WorkerProfilePageProps {
  workerId: string;
 }
 
-type WorkerProfileTab = "summary" | "contracts" | "labor-assignment";
+type WorkerProfileTab = "summary" | "contracts" | "labor-assignment" | "devices";
 
 const profileTabs: Array<{ key: WorkerProfileTab; label: string }> = [
  { key: "summary", label: "Resumen" },
  { key: "contracts", label: "Contratos" },
  { key: "labor-assignment", label: "Asignación Laboral" },
+ { key: "devices", label: "Dispositivos" },
 ];
 
 export function WorkerProfilePage({ workerId }: WorkerProfilePageProps) {
@@ -123,7 +131,7 @@ export function WorkerProfilePage({ workerId }: WorkerProfilePageProps) {
  <h2 className="section-title text-2xl font-semibold text-foreground">{worker.fullName}</h2>
  <StatusBadge status={worker.status} />
  {(() => {
- const rawLoc = activeLocation as any;
+ const rawLoc = activeLocation as unknown as { data?: LocationAssignmentInfo } & LocationAssignmentInfo;
  const loc = rawLoc?.data ?? rawLoc;
  const source = loc?.source;
  if (source === "temporary_assignment" || source === "individual_temporary_location_assignment") {
@@ -188,7 +196,7 @@ export function WorkerProfilePage({ workerId }: WorkerProfilePageProps) {
  <ProfileField label="Nacimiento" value={worker.birthDate || "No registrado"} />
  <ProfileField label="Estado" value={worker.status} />
  {(() => {
- const rawLoc = activeLocation as any;
+ const rawLoc = activeLocation as unknown as { data?: LocationAssignmentInfo } & LocationAssignmentInfo;
  const loc = rawLoc?.data ?? rawLoc;
  const source = loc?.source;
  const isTemp = source === "temporary_assignment" || source === "individual_temporary_location_assignment";
@@ -215,7 +223,7 @@ export function WorkerProfilePage({ workerId }: WorkerProfilePageProps) {
  <h3 className="text-base font-bold text-foreground mb-4">Ubicación y Asignación Activa</h3>
  
  {(() => {
- const rawLoc = activeLocation as any;
+ const rawLoc = activeLocation as unknown as { data?: LocationAssignmentInfo } & LocationAssignmentInfo;
  const loc = rawLoc?.data ?? rawLoc;
  const source = loc?.source;
  const workLocName = loc?.work_location?.name || "Sin obra";
@@ -266,6 +274,10 @@ export function WorkerProfilePage({ workerId }: WorkerProfilePageProps) {
 
  {activeTab === "labor-assignment" && (
  <LaborAssignmentForm workerId={workerId} />
+ )}
+
+ {activeTab === "devices" && (
+ <WorkerDevicesTab userId={worker.userId || worker.user_id || worker.id} />
  )}
  </Card>
  </>

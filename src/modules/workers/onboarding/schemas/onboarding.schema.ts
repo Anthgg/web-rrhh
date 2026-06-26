@@ -95,6 +95,15 @@ export const onboardingBaseSchema = z.object({
  forcePasswordChange: z.boolean().default(true),
  sendCredentialsByEmail: z.boolean().default(true),
  }),
+ requiredDocuments: z
+ .array(
+ z.object({
+ type: z.string(),
+ title: z.string(),
+ })
+ )
+ .optional()
+ .default([]),
  });
 
 export const onboardingSuperRefine = (data: any, ctx: z.RefinementCtx) => {

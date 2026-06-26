@@ -45,7 +45,7 @@ export function RequestsLayout({
  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(15,118,110,0.18),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.1),transparent_26%)]" />
  <div className="relative grid gap-5 xl:grid-cols-[1.5fr_1fr] xl:items-center">
  <div className="grid gap-4">
- <div className="inline-flex w-fit items-center gap-2 rounded-full bg-card/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-primary shadow-sm ring-1 ring-white/80">
+ <div className="inline-flex w-fit items-center gap-2 rounded-full bg-card/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-primary shadow-sm ring-1 ring-border/80">
  <DatabaseZap className="size-3.5" />
  Integrado con API real
  </div>
@@ -56,18 +56,18 @@ export function RequestsLayout({
  <p className="max-w-3xl text-sm leading-6 text-foreground-soft">{getHeroDescription(role)}</p>
  </div>
  <div className="flex flex-wrap gap-3">
- <div className="inline-flex items-center gap-2 rounded-2xl border border-white/70 bg-card/80 px-4 py-3 text-sm text-foreground">
+ <div className="inline-flex items-center gap-2 rounded-2xl border border-border/60 bg-card/80 px-4 py-3 text-sm text-foreground">
  <ShieldCheck className="size-4 text-primary" />
  Acciones visibles segun rol y estado
  </div>
- <div className="inline-flex items-center gap-2 rounded-2xl border border-white/70 bg-card/80 px-4 py-3 text-sm text-foreground">
+ <div className="inline-flex items-center gap-2 rounded-2xl border border-border/60 bg-card/80 px-4 py-3 text-sm text-foreground">
  <LayoutTemplate className="size-4 text-sky-600" />
  Reportes, detalle, adjuntos y plantillas en el mismo modulo
  </div>
  </div>
  </div>
 
- <div className="grid gap-4 rounded-[2rem] border border-white/70 bg-card/85 p-5 shadow-[0_28px_60px_rgba(15,23,42,0.08)]">
+ <div className="grid gap-4 rounded-[2rem] border border-border/60 bg-card/85 p-5 shadow-[0_28px_60px_rgba(15,23,42,0.08)]">
  <div className="flex items-center justify-between gap-3">
  <div>
  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
