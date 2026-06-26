@@ -40,7 +40,7 @@ export function DashboardPage() {
     refetch: refetchDashboard,
   } = useQuery({
     queryKey: ["admin-attendance-dashboard"],
-    queryFn: dashboardService.getAdminAttendanceDashboard,
+    queryFn: () => dashboardService.getAdminAttendanceDashboard(user),
     staleTime: 30_000,
     gcTime: 5 * 60_000,
     // El backend limita peticiones (429) cuando llegan en ráfaga; reintentar con

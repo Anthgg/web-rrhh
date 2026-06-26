@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BarChart3, Loader2, TrendingUp } from "lucide-react";
 
 import { Panel, SectionHeading } from "@/components/dashboard/primitives";
@@ -89,6 +89,11 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 export function DailyWorkedHoursSection({ weeklyChart }: { weeklyChart: WeeklyChartItem[] }) {
   const [range, setRange] = useState<number>(7);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const data = weeklyChart.map((day) => ({
     day: translateDay(day.dayName),
@@ -143,6 +148,7 @@ export function DailyWorkedHoursSection({ weeklyChart }: { weeklyChart: WeeklyCh
 
       {hasData ? (
         <div className="h-56 w-full">
+          {mounted ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
             <BarChart
               data={data}
@@ -210,6 +216,11 @@ export function DailyWorkedHoursSection({ weeklyChart }: { weeklyChart: WeeklyCh
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid h-56 place-items-center rounded-xl border border-dashed border-border bg-background text-center">

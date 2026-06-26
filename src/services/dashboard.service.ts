@@ -1,7 +1,6 @@
 import { apiClient, ApiClientError } from "@/lib/api/client";
-import { normalizeBirthdayWorker, normalizeCurrentUserProfile } from "@/lib/api/normalizers";
-import { getCurrentProfile } from "@/services/profile.service";
-import type { BirthdayWorker } from "@/types";
+import { normalizeBirthdayWorker } from "@/lib/api/normalizers";
+import type { BirthdayWorker, UserProfile } from "@/types";
 
 type LooseRecord = Record<string, unknown>;
 
@@ -213,14 +212,15 @@ export const dashboardService = {
  });
  },
 
-  async getAdminAttendanceDashboard(): Promise<AdminAttendanceDashboard> {
+  async getAdminAttendanceDashboard(sessionUser?: UserProfile | null): Promise<AdminAttendanceDashboard> {
     const todayStr = (() => {
       const d = new Date();
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     })();
 
+    // Si ya tenemos el usuario de la sesión no hacemos la llamada extra a
+    // /api/profile/current (~4-5s) que sólo sirve para obtener el nombre/rol.
     const results = await Promise.allSettled([
-      withRetry(() => getCurrentProfile()),
       withRetry(() => apiClient<DashboardSummaryResponse>("/api/dashboard/summary")),
       withRetry(() => apiClient<AttendanceTodayResponse>("/api/dashboard/attendance-today")),
       withRetry(() => apiClient<DashboardAlertsResponse>("/api/dashboard/alerts")),
@@ -232,14 +232,13 @@ export const dashboardService = {
       withRetry(() => apiClient<unknown>("/api/birthdays/all")),
     ]);
 
- const userRes = results[0].status === "fulfilled" ? results[0].value : null;
- const summaryRes = results[1].status === "fulfilled" ? results[1].value : null;
- const attendanceTodayRes = results[2].status === "fulfilled" ? results[2].value : null;
- const alertsRes = results[3].status === "fulfilled" ? results[3].value : null;
+ const summaryRes = results[0].status === "fulfilled" ? results[0].value : null;
+ const attendanceTodayRes = results[1].status === "fulfilled" ? results[1].value : null;
+ const alertsRes = results[2].status === "fulfilled" ? results[2].value : null;
 
- const weeklyChartRes = results[4].status === "fulfilled" ? results[4].value : null;
- const dailyStatusListRes = results[5].status === "fulfilled" ? results[5].value : null;
- const birthdaysRes = results[6].status === "fulfilled" ? results[6].value : null;
+ const weeklyChartRes = results[3].status === "fulfilled" ? results[3].value : null;
+ const dailyStatusListRes = results[4].status === "fulfilled" ? results[4].value : null;
+ const birthdaysRes = results[5].status === "fulfilled" ? results[5].value : null;
 
  const weeklyChartPayload = asRecord(weeklyChartRes)?.data;
  const chartData = Array.isArray(weeklyChartRes?.data)
@@ -311,17 +310,16 @@ export const dashboardService = {
  .map((entry) => normalizeBirthdayWorker(entry))
  .filter((entry): entry is BirthdayWorker => Boolean(entry));
 
- const normalizedUser = normalizeCurrentUserProfile(userRes);
- const [firstName = "", ...lastNameParts] = normalizedUser.fullName
-  .split(" ")
-  .filter(Boolean);
- const lastName = lastNameParts.join(" ");
- const dashboardUser: DashboardUser = {
-  firstName,
-  lastName,
-  fullName: normalizedUser.fullName,
-  role: normalizedUser.role !== "unknown" ? normalizedUser.role : "",
- };
+ // Construir datos del usuario desde la sesión ya disponible o desde el
+ // resultado de la API como respaldo.
+ const dashboardUser: DashboardUser = (() => {
+  const fullName = sessionUser?.fullName?.trim() || "Usuario";
+  const parts = fullName.split(" ").filter(Boolean);
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ");
+  const role = sessionUser?.role ?? "";
+  return { firstName, lastName, fullName, role };
+ })();
 
  const hasPartialFailure = results.some((r) => r.status === "rejected");
 
