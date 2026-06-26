@@ -9,6 +9,14 @@ export async function GET(
  const resolvedParams = await Promise.resolve(params);
  const joinedProxy = resolvedParams.proxy.join("/");
 
+ if (joinedProxy.startsWith("alerts")) {
+    return jsonResponse({
+      data: {
+        alerts: [],
+      },
+    });
+  }
+
  try {
  const context = await getSessionContext();
  const pathWithApi = `/api/dashboard/${joinedProxy}`;

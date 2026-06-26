@@ -90,7 +90,7 @@ const authDebug = (event: string, data: Record<string, unknown> = {}) => {
 const BACKEND_TIMEOUT_MS = 15_000;
 
 /** Maximum retries for 429 Rate-Limited requests. */
-const MAX_RETRIES_429 = 2;
+const MAX_RETRIES_429 = 0;
 
 /** Build an AbortSignal that fires after `ms` milliseconds. */
 const timeoutSignal = (ms: number) => AbortSignal.timeout(ms);
@@ -398,6 +398,27 @@ function isCatalogPath(pathCandidates: readonly string[]): boolean {
   );
 }
 
+function getCacheTTL(pathCandidates: readonly string[]): number {
+  if (isCatalogPath(pathCandidates)) {
+    return 300_000; // 5 minutes for catalogs
+  }
+
+  // Cache dashboard endpoints, vacation balances, or attendance summaries for 15 seconds
+  const isDashboardOrSummaryOrBalance = pathCandidates.some((path) =>
+    path.includes("/api/dashboard/") ||
+    path.includes("/dashboard/") ||
+    path.includes("/api/schedule/attendance-summary") ||
+    path.includes("/api/vacations/me/balance") ||
+    path.includes("/api/vacations/balance")
+  );
+
+  if (isDashboardOrSummaryOrBalance) {
+    return 15_000; // 15 seconds
+  }
+
+  return 5_000; // 5 seconds default
+}
+
 function getCacheKey(
   pathCandidates: readonly string[],
   method: string,
@@ -436,8 +457,7 @@ export async function backendRequest<T>(options: BackendRequestOptions): Promise
   if (!inFlight) {
     inFlight = performBackendRequest<T>(options)
       .then((res) => {
-        const isCatalog = isCatalogPath(pathCandidates);
-        const ttl = isCatalog ? 300_000 : 5_000; // 5 mins for catalogs, 5 seconds for other dynamic GET requests
+        const ttl = getCacheTTL(pathCandidates);
         apiCache.set(cacheKey, {
           data: res.data,
           refreshedTokens: res.refreshedTokens,
