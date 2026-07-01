@@ -8,7 +8,6 @@ export function LoginBackgroundParticles() {
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
-    // If the user prefers reduced motion, we do not animate particles
     if (reduceMotion) return;
 
     const canvas = canvasRef.current;
@@ -17,19 +16,28 @@ export function LoginBackgroundParticles() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animationFrameId: number;
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
+    let animationFrameId = 0;
+    let width = window.innerWidth;
+    let height = window.innerHeight;
 
-    const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+    const sizeCanvas = () => {
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.round(width * pixelRatio);
+      canvas.height = Math.round(height * pixelRatio);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     };
 
+    const handleResize = () => {
+      sizeCanvas();
+    };
+
+    sizeCanvas();
     window.addEventListener("resize", handleResize);
 
-    // Define subtle, corporate particles (slow and small)
     interface Particle {
       x: number;
       y: number;
@@ -42,31 +50,30 @@ export function LoginBackgroundParticles() {
     }
 
     const colors = [
-      "rgba(34, 211, 238, ", // cyan
-      "rgba(20, 184, 166, ",  // petroleum green
-      "rgba(59, 130, 246, ",  // slate blue
-      "rgba(255, 255, 255, ", // white
+      "rgba(255, 255, 255, ",
+      "rgba(203, 213, 225, ",
+      "rgba(148, 163, 184, ",
+      "rgba(127, 151, 149, ",
     ];
 
-    // Reduced number of particles for a clean corporate look (30 particles)
-    const particles: Particle[] = Array.from({ length: 30 }, () => {
-      const size = Math.random() * 1.5 + 0.8;
+    const particleCount = width < 640 ? 14 : 26;
+    const particles: Particle[] = Array.from({ length: particleCount }, () => {
+      const size = Math.random() * 1.3 + 0.6;
       return {
         x: Math.random() * width,
         y: Math.random() * height,
         size,
-        speedX: (Math.random() - 0.5) * 0.08, // slow movement
-        speedY: (Math.random() - 0.5) * 0.08,
+        speedX: (Math.random() - 0.5) * 0.06,
+        speedY: (Math.random() - 0.5) * 0.06,
         color: colors[Math.floor(Math.random() * colors.length)],
-        alpha: Math.random() * 0.2 + 0.05, // low opacity
-        alphaSpeed: (Math.random() - 0.5) * 0.001,
+        alpha: Math.random() * 0.14 + 0.04,
+        alphaSpeed: (Math.random() - 0.5) * 0.0008,
       };
     });
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // Draw subtle technical grid (very fine lines)
       ctx.strokeStyle = "rgba(255, 255, 255, 0.012)";
       ctx.lineWidth = 0.5;
 
@@ -82,19 +89,17 @@ export function LoginBackgroundParticles() {
       }
       ctx.stroke();
 
-      // Render slow particles
       particles.forEach((p) => {
         p.x += p.speedX;
         p.y += p.speedY;
 
-        // Wrap around borders
         if (p.x < 0) p.x = width;
         if (p.x > width) p.x = 0;
         if (p.y < 0) p.y = height;
         if (p.y > height) p.y = 0;
 
         p.alpha += p.alphaSpeed;
-        if (p.alpha > 0.25 || p.alpha < 0.05) {
+        if (p.alpha > 0.18 || p.alpha < 0.03) {
           p.alphaSpeed = -p.alphaSpeed;
         }
 
@@ -116,16 +121,15 @@ export function LoginBackgroundParticles() {
   }, [reduceMotion]);
 
   if (reduceMotion) {
-    // Static technical grid for reduced motion
     return (
-      <div className="absolute inset-0 z-0 opacity-15 pointer-events-none bg-[linear-gradient(to_right,rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:60px_60px]" />
+      <div className="pointer-events-none absolute inset-0 z-0 opacity-40 bg-[radial-gradient(circle_at_12%_18%,rgba(203,213,225,0.18)_0_1px,transparent_1.5px),radial-gradient(circle_at_72%_38%,rgba(127,151,149,0.16)_0_1px,transparent_1.5px),linear-gradient(to_right,rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:220px_180px,280px_240px,60px_60px,60px_60px]" />
     );
   }
 
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none absolute inset-0 z-0 h-full w-full opacity-50"
+      className="pointer-events-none absolute inset-0 z-0 h-full w-full opacity-45"
     />
   );
 }

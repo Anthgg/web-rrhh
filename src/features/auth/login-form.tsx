@@ -1,7 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
+import {
+  AnimatePresence,
+  domAnimation,
+  LazyMotion,
+  m,
+  useReducedMotion,
+  type Variants,
+} from "framer-motion";
 import {
   ArrowRight,
   Clock,
@@ -15,7 +22,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -80,25 +87,6 @@ export function LoginForm() {
 
   const searchParams = useSearchParams();
   const reason = searchParams.get("reason");
-
-  useEffect(() => {
-    if (reason === "session-revoked") {
-      toast.error("Sesión cerrada desde otro dispositivo.", {
-        id: "session-revoked-toast",
-        duration: 5000,
-      });
-    } else if (reason === "session-expired") {
-      toast.error("Tu sesión ha expirado. Inicia sesión nuevamente.", {
-        id: "session-expired-toast",
-        duration: 5000,
-      });
-    } else if (reason === "auth-required") {
-      toast.error("Debes iniciar sesión para acceder al panel.", {
-        id: "auth-required-toast",
-        duration: 5000,
-      });
-    }
-  }, [reason]);
 
   const {
     register,
@@ -175,167 +163,156 @@ export function LoginForm() {
   const year = new Date().getFullYear();
 
   return (
-    <main className="relative flex min-h-screen w-full bg-gradient-to-br from-[#0c2533] via-[#051c24] to-[#121618] text-white overflow-hidden font-sans select-none">
-      {/* Subtle tech background particles */}
-      <LoginBackgroundParticles />
+    <LazyMotion features={domAnimation}>
+      <main className="relative flex min-h-dvh w-full overflow-x-hidden bg-[#08181f] font-sans text-white">
+        <LoginBackgroundParticles />
 
-      {/* Corporate soft background glows */}
-      <div className="pointer-events-none absolute right-[10%] top-[15%] size-[450px] rounded-full bg-cyan-500/5 blur-[120px] z-0" />
-      <div className="pointer-events-none absolute right-[20%] bottom-[15%] size-[350px] rounded-full bg-teal-500/5 blur-[100px] z-0" />
+        <div className="pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(118deg,rgba(18,51,59,0.5)_0%,rgba(8,24,31,0.78)_48%,rgba(18,25,28,0.92)_100%)]" />
+        <div className="pointer-events-none absolute -right-40 top-[16%] z-0 size-[32rem] rounded-full bg-[#5f7977]/[0.08] blur-[130px]" />
 
-      {/* Column Left (52% width) */}
-      <LoginHero />
+        <LoginHero />
 
-      {/* Vertical subtle divider line */}
-      <div className="hidden lg:block w-px bg-gradient-to-b from-transparent via-slate-800/40 to-transparent self-stretch my-16 z-10" />
+        <div className="z-10 my-10 hidden w-px self-stretch bg-gradient-to-b from-transparent via-white/10 to-transparent lg:block" />
 
-      {/* Column Right (48% width, centered login card) */}
-      <div className="relative flex flex-col w-full lg:w-[48%] items-center justify-center px-4 py-8 sm:px-12 z-10">
-        
-        {/* Mobile Header Logo */}
-        <div className="mb-6 flex flex-col items-center justify-center gap-2 lg:hidden">
+        <section
+          aria-labelledby="login-heading"
+          className="relative z-10 flex min-h-dvh w-full flex-col items-center justify-center px-4 py-6 sm:px-8 sm:py-10 lg:h-dvh lg:min-h-0 lg:w-[46%] xl:px-[clamp(2.5rem,3vw,6rem)]"
+        >
+        <div className="mb-5 flex flex-col items-center justify-center gap-2 lg:hidden">
           <div className="flex items-center gap-3">
-            <div className="relative size-10 overflow-hidden rounded-xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 p-2 border border-cyan-500/20 shadow-md">
-              <Image src="/logo.png" alt="FABRYOR" fill sizes="40px" className="object-contain p-0.5" priority />
+            <div className="relative size-10 overflow-hidden rounded-xl border border-white/10 bg-white/[0.07] p-2 shadow-lg">
+              <Image src="/logo.png" alt="FABRYOR" fill sizes="40px" className="object-contain p-1" priority />
             </div>
-            <span className="text-xl font-black tracking-tight text-white">
-              FABRYOR <span className="text-cyan-400 font-bold">Admin</span>
+            <span className="font-display text-xl font-extrabold tracking-[-0.025em] text-white">
+              FABRYOR <span className="font-semibold text-[#aabcb8]">Admin</span>
             </span>
           </div>
-          <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">
+          <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#839792]">
             Control de Personal y Obra
           </span>
         </div>
 
-        {/* Card footprint (480px to 540px) */}
-        <div className="relative w-full max-w-[480px] sm:max-w-[520px] flex flex-col justify-center">
-          
-          {/* Card Border Glow Backup */}
-          <div 
-            className="pointer-events-none absolute -inset-4 rounded-[36px] bg-gradient-to-tr from-cyan-500/5 to-teal-500/5 blur-xl transition-opacity duration-1000" 
-            style={{ opacity: built ? 0.6 : 0 }} 
+        <div className="relative flex w-full max-w-[clamp(520px,24vw,720px)] flex-col justify-center">
+          <div
+            className="pointer-events-none absolute -inset-5 rounded-[2rem] bg-[#7f9994]/10 blur-3xl transition-opacity duration-700"
+            style={{ opacity: built ? 0.65 : 0.18 }}
           />
 
-          {/* Card element */}
           <div
             className={cn(
-              "relative w-full rounded-[32px] border transition-all duration-700 backdrop-blur-2xl px-6 py-9 sm:px-11 sm:py-11 min-h-[580px] flex flex-col justify-center",
+              "relative flex min-h-[clamp(590px,68vh,760px)] w-full flex-col justify-center overflow-hidden rounded-[1.75rem] border px-[clamp(1.5rem,2.4vw,3.75rem)] py-[clamp(2rem,4vh,3.75rem)] shadow-[0_30px_80px_rgba(0,0,0,0.34)] transition-[background-color,border-color,box-shadow] duration-700",
               built
-                ? "bg-[#0b171f]/50 border-slate-800 shadow-[0_25px_50px_rgba(0,0,0,0.55)]"
-                : "bg-transparent border-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.02)] border-dashed animate-pulse"
+                ? "border-white/40 bg-[#f2f4f1]/[0.96] backdrop-blur-xl"
+                : "border-white/[0.08] bg-white/[0.025] backdrop-blur-sm"
             )}
           >
-            {/* Border modular brick assembly */}
             <AnimatePresence mode="wait">
               {!built && (
-                <motion.div
+                <m.div
                   key="bricks"
                   initial={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.35, ease: "easeOut" }}
-                  className="absolute inset-0 flex items-center justify-center"
+                  transition={{ duration: reduceMotion ? 0.15 : 0.38, ease: "easeOut" }}
+                  className="absolute inset-0 flex items-center justify-center p-1"
                 >
                   <BrickBuildAnimation onBuilt={() => setBuilt(true)} />
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 
-            {/* LoginForm content */}
-            <motion.div
+            <m.div
               variants={formContainer}
               initial="hidden"
               animate={built ? "show" : "hidden"}
-              className={cn("space-y-7", !built && "pointer-events-none opacity-0")}
+              aria-hidden={!built}
+              className={cn("space-y-6 min-[2100px]:space-y-8", !built && "pointer-events-none opacity-0")}
             >
-              {/* Shield Title Header */}
-              <motion.div variants={formItem} className="space-y-4">
-                <span className="flex size-12 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/15 shadow-[0_0_12px_rgba(34,211,238,0.12)]">
-                  <ShieldCheck className="size-6" />
+              <m.div variants={formItem} className="space-y-4">
+                <span className="flex size-11 items-center justify-center rounded-full border border-[#315f60]/15 bg-[#315f60]/[0.07] text-[#315f60] min-[2100px]:size-14">
+                  <ShieldCheck className="size-5 min-[2100px]:size-6" strokeWidth={1.8} aria-hidden />
                 </span>
-                <div className="space-y-1.5">
-                  <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-[30px] leading-tight">
+                <div className="space-y-2">
+                  <h2 id="login-heading" className="font-display text-[1.7rem] font-extrabold leading-tight tracking-[-0.035em] text-[#17272b] sm:text-[2rem] min-[2100px]:text-[2.4rem]">
                     Bienvenido de nuevo
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                  <p className="text-sm leading-relaxed text-[#647476] min-[2100px]:text-base">
                     Accede a tu panel de gestión y control operativo
                   </p>
                 </div>
-              </motion.div>
+              </m.div>
 
-              {/* Reason alert */}
               {reason && (
-                <motion.div variants={formItem}>
+                <m.div variants={formItem}>
                   <AuthReasonAlert reason={reason} />
-                </motion.div>
+                </m.div>
               )}
 
-              {/* Login Errors */}
               {authError && (
-                <motion.div
+                <m.div
                   variants={formItem}
                   role="alert"
-                  className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-rose-300"
+                  className="flex items-start gap-3 rounded-xl border border-[#a95e5e]/20 bg-[#a95e5e]/[0.07] p-3.5 text-[#7c3f3f]"
                 >
                   <TriangleAlert className="mt-0.5 size-[18px] shrink-0" aria-hidden />
-                  <p className="text-[13px] leading-relaxed font-medium">{authError}</p>
-                </motion.div>
+                  <p className="text-[13px] font-medium leading-relaxed">{authError}</p>
+                </m.div>
               )}
 
-              <form className="space-y-6" onSubmit={onSubmit} noValidate>
-                {/* Email input with real labels */}
-                <motion.div variants={formItem} className="space-y-2.5">
-                  <label htmlFor="login-email" className="block text-[13px] sm:text-sm font-semibold text-slate-300 tracking-wide">
+              <form className="space-y-5 min-[2100px]:space-y-6" onSubmit={onSubmit} noValidate>
+                <m.div variants={formItem} className="space-y-2">
+                  <label htmlFor="login-email" className="block text-[13px] font-semibold text-[#344649] min-[2100px]:text-[15px]">
                     Correo corporativo
                   </label>
                   <div className="relative">
-                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-600" />
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-[#809092] min-[2100px]:size-5" strokeWidth={1.8} aria-hidden />
                     <input
                       id="login-email"
                       type="email"
                       placeholder="nombre@empresa.com"
                       autoComplete="email"
                       aria-invalid={Boolean(errors.email)}
+                      aria-describedby={errors.email ? "login-email-error" : undefined}
                       className={cn(
-                        "h-13 w-full rounded-xl border bg-slate-950/40 pl-11 pr-4 text-sm sm:text-base text-white outline-none transition-all duration-200 placeholder:text-slate-600 focus:bg-slate-950/70",
+                        "h-12 w-full rounded-xl border bg-white/75 pl-11 pr-4 text-[15px] text-[#17272b] outline-none transition-[border-color,box-shadow,background-color] placeholder:text-[#98a4a5] focus:bg-white focus:ring-3 min-[2100px]:h-14 min-[2100px]:pl-12 min-[2100px]:text-base",
                         errors.email
-                          ? "border-rose-500/40 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10"
-                          : "border-slate-800 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10",
+                          ? "border-[#a95e5e]/50 focus:border-[#a95e5e] focus:ring-[#a95e5e]/10"
+                          : "border-[#cfd6d4] focus:border-[#547a78] focus:ring-[#547a78]/10",
                       )}
                       {...register("email")}
                     />
                   </div>
                   {errors.email && (
-                    <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-400">
-                      <span className="inline-block size-1 rounded-full bg-rose-400 animate-pulse" />
+                    <p id="login-email-error" className="flex items-center gap-1.5 text-xs font-medium text-[#8c4545]">
+                      <span className="inline-block size-1 rounded-full bg-[#8c4545]" aria-hidden />
                       {errors.email.message}
                     </p>
                   )}
-                </motion.div>
+                </m.div>
 
-                {/* Password input with real labels */}
-                <motion.div variants={formItem} className="space-y-2.5">
-                  <label htmlFor="login-password" className="block text-[13px] sm:text-sm font-semibold text-slate-300 tracking-wide">
+                <m.div variants={formItem} className="space-y-2">
+                  <label htmlFor="login-password" className="block text-[13px] font-semibold text-[#344649] min-[2100px]:text-[15px]">
                     Contraseña
                   </label>
                   <div className="relative">
-                    <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-600" />
+                    <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-[#809092] min-[2100px]:size-5" strokeWidth={1.8} aria-hidden />
                     <input
                       id="login-password"
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       autoComplete="current-password"
                       aria-invalid={Boolean(errors.password)}
+                      aria-describedby={errors.password ? "login-password-error" : undefined}
                       className={cn(
-                        "h-13 w-full rounded-xl border bg-slate-950/40 pl-11 pr-12 text-sm sm:text-base text-white outline-none transition-all duration-200 placeholder:text-slate-600 focus:bg-slate-950/70",
+                        "h-12 w-full rounded-xl border bg-white/75 pl-11 pr-12 text-[15px] text-[#17272b] outline-none transition-[border-color,box-shadow,background-color] placeholder:text-[#98a4a5] focus:bg-white focus:ring-3 min-[2100px]:h-14 min-[2100px]:pl-12 min-[2100px]:text-base",
                         errors.password
-                          ? "border-rose-500/40 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10"
-                          : "border-slate-800 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10",
+                          ? "border-[#a95e5e]/50 focus:border-[#a95e5e] focus:ring-[#a95e5e]/10"
+                          : "border-[#cfd6d4] focus:border-[#547a78] focus:ring-[#547a78]/10",
                       )}
                       {...register("password")}
                     />
                     <button
                       type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-500 transition-colors hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#718183] transition-colors hover:bg-[#e5e9e6] hover:text-[#24383b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#547a78]"
                       onClick={() => setShowPassword((v) => !v)}
                       aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                     >
@@ -343,26 +320,25 @@ export function LoginForm() {
                     </button>
                   </div>
                   {errors.password && (
-                    <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-400">
-                      <span className="inline-block size-1 rounded-full bg-rose-400 animate-pulse" />
+                    <p id="login-password-error" className="flex items-center gap-1.5 text-xs font-medium text-[#8c4545]">
+                      <span className="inline-block size-1 rounded-full bg-[#8c4545]" aria-hidden />
                       {errors.password.message}
                     </p>
                   )}
-                </motion.div>
+                </m.div>
 
-                {/* Remember & forgot password */}
-                <motion.div variants={formItem} className="flex items-center justify-between gap-3 pt-1">
-                  <label htmlFor="login-remember" className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm text-slate-400 select-none">
+                <m.div variants={formItem} className="flex items-center justify-between gap-3 pt-0.5">
+                  <label htmlFor="login-remember" className="flex cursor-pointer select-none items-center gap-2 text-xs text-[#647476] sm:text-sm min-[2100px]:text-base">
                     <input
                       id="login-remember"
                       type="checkbox"
-                      className="size-4 rounded border-slate-800 bg-slate-950 text-cyan-500 focus:ring-0 focus:ring-offset-0"
+                      className="size-4 rounded border-[#bcc6c4] bg-white accent-[#315f60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#547a78] focus-visible:ring-offset-2"
                     />
                     Recordarme
                   </label>
                   <button
                     type="button"
-                    className="text-xs sm:text-sm font-bold text-cyan-400 transition-opacity hover:opacity-80"
+                    className="rounded text-xs font-semibold text-[#315f60] underline-offset-4 transition-colors hover:text-[#1f484a] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#547a78] sm:text-sm min-[2100px]:text-base"
                     onClick={() =>
                       toast.info(
                         "Contacta a tu administrador para restablecer tu contraseña.",
@@ -372,31 +348,29 @@ export function LoginForm() {
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
-                </motion.div>
+                </m.div>
 
-                {/* Slow Connection flag */}
                 {isSlow && isLoading && (
-                  <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-300">
-                    <Clock className="mt-0.5 size-4 shrink-0 animate-pulse text-amber-400" />
+                  <div className="flex items-start gap-2.5 rounded-xl border border-[#a07840]/20 bg-[#a07840]/[0.07] p-3.5 text-xs text-[#6f512c]">
+                    <Clock className="mt-0.5 size-4 shrink-0 text-[#8a6534]" aria-hidden />
                     <div className="space-y-1">
-                      <p className="font-semibold text-amber-300">Conexión lenta detectada</p>
-                      <p className="leading-relaxed text-slate-300">
+                      <p className="font-semibold">Conexión lenta detectada</p>
+                      <p className="leading-relaxed text-[#5d6b6c]">
                         El servidor backend podría estar iniciando (cold start). No cierres la ventana, esto puede tomar unos segundos.
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Main Submit Button */}
-                <motion.button
+                <m.button
                   variants={formItem}
                   type="submit"
                   disabled={isLoading}
                   className={cn(
-                    "group relative mt-1 flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 text-sm sm:text-base font-bold text-slate-950 shadow-lg shadow-cyan-500/5 transition-all duration-200",
+                    "group relative mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#214c4f] text-sm font-semibold text-white shadow-[0_10px_24px_rgba(33,76,79,0.18)] transition-[transform,background-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#547a78]/30 focus-visible:ring-offset-2 sm:text-[15px] min-[2100px]:h-14 min-[2100px]:text-base",
                     isLoading
                       ? "cursor-not-allowed opacity-75"
-                      : "hover:-translate-y-0.5 hover:shadow-cyan-500/15 hover:shadow-xl active:translate-y-0",
+                      : "hover:-translate-y-0.5 hover:bg-[#193f42] hover:shadow-[0_14px_28px_rgba(33,76,79,0.24)] active:translate-y-0",
                   )}
                 >
                   {isLoading ? (
@@ -410,28 +384,27 @@ export function LoginForm() {
                       <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                     </>
                   )}
-                </motion.button>
+                </m.button>
               </form>
 
-              {/* Encryption Bottom Banner */}
-              <motion.div
+              <m.div
                 variants={formItem}
-                className="flex items-start gap-2.5 rounded-2xl border border-slate-800/80 bg-slate-900/10 p-4"
+                className="flex items-start gap-2.5 rounded-xl border border-[#d5dcda] bg-white/45 p-3.5"
               >
-                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-cyan-400" />
-                <p className="text-[11px] leading-relaxed text-slate-400">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#547a78]" strokeWidth={1.8} aria-hidden />
+                <p className="text-[11px] leading-relaxed text-[#697879] min-[2100px]:text-[13px]">
                   Conexión segura con cifrado. Tus datos y los de tu empresa están protegidos.
                 </p>
-              </motion.div>
-            </motion.div>
+              </m.div>
+            </m.div>
           </div>
 
-          {/* Footer Copyright */}
-          <p suppressHydrationWarning className="mt-6 text-center text-[10px] sm:text-xs text-slate-500">
+          <p suppressHydrationWarning className="mt-5 text-center text-[10px] text-[#82918f] sm:text-xs min-[2100px]:mt-7 min-[2100px]:text-sm">
             &copy; {year} FABRYOR &mdash; Todos los derechos reservados
           </p>
         </div>
-      </div>
-    </main>
+        </section>
+      </main>
+    </LazyMotion>
   );
 }

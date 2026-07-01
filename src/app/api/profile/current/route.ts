@@ -42,51 +42,55 @@ function mergeSessionData(baseSession: SessionData, nextSession: SessionData): S
 }
 
 export async function GET() {
- const context = await getSessionContext();
+  try {
+    const context = await getSessionContext();
 
- try {
- const response = await backendRequest({
- pathCandidates: backendRoutes.profile.current,
- accessToken: context.accessToken,
- refreshToken: context.refreshToken,
- });
+    try {
+      const response = await backendRequest({
+        pathCandidates: backendRoutes.profile.current,
+        accessToken: context.accessToken,
+        refreshToken: context.refreshToken,
+      });
 
- if (response.refreshedTokens) {
- await setSessionCookies(response.refreshedTokens);
- }
+      if (response.refreshedTokens) {
+        await setSessionCookies(response.refreshedTokens);
+      }
 
- const session = mergeSessionData(context.session, normalizeSession(response.data));
- await setSessionSnapshot(session);
+      const session = mergeSessionData(context.session, normalizeSession(response.data));
+      await setSessionSnapshot(session);
 
- return jsonResponse(response.data);
- } catch (error) {
- if (error instanceof BackendApiError && ![401, 403].includes(error.status)) {
- try {
- const fallbackResponse = await backendRequest({
- pathCandidates: backendRoutes.auth.profile,
- accessToken: context.accessToken,
- refreshToken: context.refreshToken,
- });
+      return jsonResponse(response.data);
+    } catch (error) {
+      if (error instanceof BackendApiError && ![401, 403].includes(error.status)) {
+        try {
+          const fallbackResponse = await backendRequest({
+            pathCandidates: backendRoutes.auth.profile,
+            accessToken: context.accessToken,
+            refreshToken: context.refreshToken,
+          });
 
- if (fallbackResponse.refreshedTokens) {
- await setSessionCookies(fallbackResponse.refreshedTokens);
- }
+          if (fallbackResponse.refreshedTokens) {
+            await setSessionCookies(fallbackResponse.refreshedTokens);
+          }
 
- const session = mergeSessionData(context.session, normalizeSession(fallbackResponse.data));
- await setSessionSnapshot(session);
+          const session = mergeSessionData(context.session, normalizeSession(fallbackResponse.data));
+          await setSessionSnapshot(session);
 
- return jsonResponse(fallbackResponse.data);
- } catch (fallbackError) {
- if (fallbackError instanceof BackendApiError && ![401, 403].includes(fallbackError.status)) {
- return jsonResponse(context.session);
- }
+          return jsonResponse(fallbackResponse.data);
+        } catch (fallbackError) {
+          if (fallbackError instanceof BackendApiError && ![401, 403].includes(fallbackError.status)) {
+            return jsonResponse(context.session);
+          }
 
- return handleRouteError(fallbackError);
- }
- }
+          return handleRouteError(fallbackError);
+        }
+      }
 
- return handleRouteError(error);
- }
+      return handleRouteError(error);
+    }
+  } catch (outerError) {
+    return handleRouteError(outerError);
+  }
 }
 
 export async function PATCH(request: Request) {

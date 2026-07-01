@@ -52,7 +52,6 @@ export default function AttendanceSummaryPage() {
         end_date: committed.endDate,
         worker_id: committed.workerId || undefined,
       });
-      console.log("[attendance-summary] response:", result);
       return result;
     },
     enabled: Boolean(committed.startDate && committed.endDate),

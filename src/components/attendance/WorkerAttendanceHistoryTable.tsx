@@ -21,8 +21,8 @@ function getHistoryDayKey(record: AttendanceSummary): string {
     record.dayKey ??
     record.calendarDate ??
     record.localDate ??
-    record.calendarDateTime?.split("T")[0] ??
     record.dateTime?.split("T")[0] ??
+    record.calendarDateTime?.split("T")[0] ??
     ""
   );
 }

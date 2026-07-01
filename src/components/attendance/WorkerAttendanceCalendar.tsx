@@ -53,7 +53,14 @@ const STATUS_CHIP_COLORS: Record<AttendanceDayStatus, string> = {
 };
 
 function getSafeRecordDayKey(record: AttendanceSummary): string | null {
-  return record.dateKey ?? record.dayKey ?? record.calendarDate ?? null;
+  return (
+    record.dateKey ??
+    record.dayKey ??
+    record.calendarDate ??
+    record.dateTime ??
+    record.calendarDateTime ??
+    null
+  );
 }
 
 function normalizeDayKey(dayKey: string | null | undefined): string | null {
@@ -61,16 +68,34 @@ function normalizeDayKey(dayKey: string | null | undefined): string | null {
   return dayKey.includes("T") ? dayKey.split("T")[0] : dayKey;
 }
 
-function pickCalendarRecord(value: AttendanceRecordsByDate[string]): AttendanceSummary | null {
+function getRecordWorkerId(record: AttendanceSummary): string | undefined {
+  const row = record as unknown as Record<string, unknown>;
+  return String(record.worker_id ?? row.workerId ?? row.worker_id ?? "").trim() || undefined;
+}
+
+function filterRecordsForWorker(records: AttendanceSummary[], workerId?: string): AttendanceSummary[] {
+  if (!workerId) return records;
+  const hasWorkerScopedRows = records.some((record) => Boolean(getRecordWorkerId(record)));
+  if (!hasWorkerScopedRows) return records;
+
+  return records.filter((record) => {
+    const recordWorkerId = getRecordWorkerId(record);
+    return !recordWorkerId || recordWorkerId === workerId;
+  });
+}
+
+function pickCalendarRecord(value: AttendanceRecordsByDate[string], workerId?: string): AttendanceSummary | null {
   if (!value) return null;
-  if (!Array.isArray(value)) return value;
+  const records = filterRecordsForWorker(Array.isArray(value) ? value : [value], workerId);
+  if (!records.length) return null;
+  if (!Array.isArray(value)) return records[0];
 
   return (
-    value.find((record) => {
+    records.find((record) => {
       const status = normalizeAttendanceStatus(record as unknown as Record<string, unknown>);
       return status !== "none" && status !== "pending" && status !== "unknown";
     }) ??
-    value[0] ??
+    records[0] ??
     null
   );
 }
@@ -78,22 +103,30 @@ function pickCalendarRecord(value: AttendanceRecordsByDate[string]): AttendanceS
 function buildCalendarRecordMap(
   records: AttendanceSummary[],
   recordsByDate?: AttendanceRecordsByDate,
-  calendarByDate?: AttendanceRecordsByDate
+  calendarByDate?: AttendanceRecordsByDate,
+  workerId?: string
 ) {
   const sourceMap = recordsByDate ?? calendarByDate;
   const recordMap = new Map<string, AttendanceSummary>();
 
   if (sourceMap) {
     for (const [mapKey, value] of Object.entries(sourceMap)) {
-      const record = pickCalendarRecord(value);
+      const record = pickCalendarRecord(value, workerId);
       if (!record) continue;
-      const safeKey = normalizeDayKey(getSafeRecordDayKey(record)) ?? normalizeDayKey(mapKey);
-      if (safeKey) recordMap.set(safeKey, record);
+      const safeKey = normalizeDayKey(mapKey) ?? normalizeDayKey(getSafeRecordDayKey(record));
+      if (safeKey) {
+        recordMap.set(safeKey, {
+          ...record,
+          dateKey: safeKey,
+          dayKey: safeKey,
+          calendarDate: safeKey,
+        });
+      }
     }
     return recordMap;
   }
 
-  for (const record of records) {
+  for (const record of filterRecordsForWorker(records, workerId)) {
     const safeKey = normalizeDayKey(getSafeRecordDayKey(record));
     if (safeKey) recordMap.set(safeKey, record);
   }
@@ -117,8 +150,8 @@ export function WorkerAttendanceCalendar({
   const [calMonth, setCalMonth] = useState(today.getMonth());
 
   const recordMap = useMemo(
-    () => buildCalendarRecordMap(records, recordsByDate, calendarByDate),
-    [calendarByDate, records, recordsByDate]
+    () => buildCalendarRecordMap(records, recordsByDate, calendarByDate, workerId),
+    [calendarByDate, records, recordsByDate, workerId]
   );
 
   // ── Fetch rest days & holidays for the whole records range ──────────────

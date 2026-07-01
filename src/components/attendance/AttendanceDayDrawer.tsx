@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 
-import { X, Clock, MapPin, Camera, FileText, AlertTriangle, Info } from "lucide-react";
+import { X, Clock, Camera, FileText, AlertTriangle, Info } from "lucide-react";
 import { AttendanceStatusBadge } from "@/components/attendance/AttendanceStatusBadge";
 import { normalizeAttendanceStatus, formatDateLocal, formatTime, formatTimeDuration, formatMinutes, formatCurrency, getRecordCheckTime, getDayReason } from "@/lib/utils/attendance";
 import type { AttendanceSummary } from "@/types/schedule";
@@ -19,13 +19,22 @@ interface AttendanceDayDrawerProps {
   workerId: string;
   open: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
   context?: {
     restType?: string;
     isHoliday?: boolean;
     holidayName?: string;
   };
 }
+
+type AttendanceCorrectionPayload = {
+  worker_id: string;
+  date: string;
+  check_in_time?: string;
+  check_out_time?: string;
+  status: string;
+  reason: string;
+};
 
 export function AttendanceDayDrawer({ record, dateStr, workerId, open, onClose, onSuccess, context }: AttendanceDayDrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -47,26 +56,28 @@ export function AttendanceDayDrawer({ record, dateStr, workerId, open, onClose, 
   const checkIn = record ? getRecordCheckTime(record, "in") : null;
   const checkOut = record ? getRecordCheckTime(record, "out") : null;
 
-  // Sync form data when opening edit mode
-  useEffect(() => {
-    if (isEditing) {
-      setFormData({
-        check_in_time: checkIn ? formatTime(checkIn) : "",
-        check_out_time: checkOut ? formatTime(checkOut) : "",
-        status: status === "unknown" || status === "not_scheduled" ? "present" : status,
-        reason: "",
-      });
-    }
-  }, [isEditing, checkIn, checkOut, status]);
+  const startEditing = useCallback(() => {
+    setFormData({
+      check_in_time: checkIn ? formatTime(checkIn) : "",
+      check_out_time: checkOut ? formatTime(checkOut) : "",
+      status: status === "unknown" || status === "not_scheduled" ? "present" : status,
+      reason: "",
+    });
+    setIsEditing(true);
+  }, [checkIn, checkOut, status]);
 
   const queryClient = useQueryClient();
 
   const setRestDayMutation = useMutation({
     mutationFn: () => scheduleService.setRestDay(workerId, dateStr),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Día de descanso asignado correctamente");
-      queryClient.invalidateQueries({ queryKey: ["attendance-summary"] });
-      onSuccess?.();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["worker-rest-days", workerId] }),
+        queryClient.invalidateQueries({ queryKey: ["worker-attendance-detail", workerId] }),
+        queryClient.invalidateQueries({ queryKey: ["attendance-summary"] }),
+      ]);
+      await onSuccess?.();
     },
     onError: () => {
       toast.error("Error al asignar día de descanso");
@@ -75,10 +86,14 @@ export function AttendanceDayDrawer({ record, dateStr, workerId, open, onClose, 
 
   const removeRestDayMutation = useMutation({
     mutationFn: () => scheduleService.removeRestDay(workerId, dateStr),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Día de descanso removido correctamente");
-      queryClient.invalidateQueries({ queryKey: ["attendance-summary"] });
-      onSuccess?.();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["worker-rest-days", workerId] }),
+        queryClient.invalidateQueries({ queryKey: ["worker-attendance-detail", workerId] }),
+        queryClient.invalidateQueries({ queryKey: ["attendance-summary"] }),
+      ]);
+      await onSuccess?.();
     },
     onError: () => {
       toast.error("Error al remover día de descanso");
@@ -86,18 +101,26 @@ export function AttendanceDayDrawer({ record, dateStr, workerId, open, onClose, 
   });
 
   const mutation = useMutation({
-    mutationFn: (payload: any) => scheduleService.correctAttendance(payload),
-    onSuccess: () => {
+    mutationFn: (payload: AttendanceCorrectionPayload) => scheduleService.correctAttendance(payload),
+    onSuccess: async () => {
       toast.success("Asistencia actualizada correctamente");
       setIsEditing(false);
-      onSuccess?.();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["worker-attendance-detail", workerId] }),
+        queryClient.invalidateQueries({ queryKey: ["attendance-summary"] }),
+      ]);
+      await onSuccess?.();
     },
-    onError: (err: any) => {
-      toast.error(err.message || "Error al actualizar la asistencia");
+    onError: (err: unknown) => {
+      console.error("[AttendanceDayDrawer] mutation onError:", err);
+      toast.error(err instanceof Error ? err.message : "Error al actualizar la asistencia");
     },
   });
 
-  const isWorkingDay = record ? (record as any).is_working_day : !context?.restType;
+  const isWorkingDay = record
+    ? ((record as unknown as { is_working_day?: boolean; isWorkingDay?: boolean }).is_working_day ??
+      (record as unknown as { isWorkingDay?: boolean }).isWorkingDay)
+    : !context?.restType;
 
   const ensureSeconds = (timeStr?: string) => {
     if (!timeStr) return undefined;
@@ -109,14 +132,16 @@ export function AttendanceDayDrawer({ record, dateStr, workerId, open, onClose, 
     e.preventDefault();
     if (!dateStr || !workerId) return;
 
-    mutation.mutate({
+    const payload: AttendanceCorrectionPayload = {
       worker_id: workerId,
       date: dateStr,
       check_in_time: ensureSeconds(formData.check_in_time),
       check_out_time: ensureSeconds(formData.check_out_time),
       status: formData.status,
       reason: formData.reason,
-    });
+    };
+
+    mutation.mutate(payload);
   };
 
   const content = (
@@ -136,7 +161,7 @@ export function AttendanceDayDrawer({ record, dateStr, workerId, open, onClose, 
               : "Haz clic en el calendario para ver el detalle.")}
           </p>
           {dateStr && !context?.isHoliday && !context?.restType && (
-            <Button onClick={() => setIsEditing(true)} variant="secondary" className="mt-6">
+            <Button onClick={startEditing} variant="secondary" className="mt-6">
               Registrar asistencia manual
             </Button>
           )}
@@ -372,7 +397,7 @@ export function AttendanceDayDrawer({ record, dateStr, workerId, open, onClose, 
             <div className="flex items-center gap-2">
               {!isEditing && dateStr && (
                 <>
-                  <Button variant="secondary" onClick={() => setIsEditing(true)}>
+                  <Button variant="secondary" onClick={startEditing}>
                     Editar
                   </Button>
                   {isWorkingDay === false ? (
@@ -424,7 +449,7 @@ export function AttendanceDayDrawer({ record, dateStr, workerId, open, onClose, 
           <div className="flex items-center gap-2">
             {!isEditing && dateStr && (
               <>
-                <Button variant="secondary" onClick={() => setIsEditing(true)}>
+                <Button variant="secondary" onClick={startEditing}>
                   Editar
                 </Button>
                 {isWorkingDay === false ? (

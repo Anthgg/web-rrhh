@@ -57,6 +57,7 @@ export function DashboardPage() {
     queryFn: () =>
       apiClient<PaginatedRequestsResponse>(webApiEndpoints.requests.pending, {
         query: { page: 1, pageSize: 1, status: "pending", sortBy: "newest", softFail: 1 },
+        suppressUnauthorizedEvent: true,
       }),
     enabled: Boolean(user && canManageRequests),
     retry: false,

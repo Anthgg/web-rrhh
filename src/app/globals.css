@@ -290,6 +290,35 @@ textarea {
   }
 }
 
+/* ─── Login: ambient particle drift ─── */
+@keyframes login-particle-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(var(--drift-x, 12px), var(--drift-y, -18px), 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes login-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-login-particle],
+  [data-login-float] {
+    animation: none !important;
+  }
+}
+
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
   width: 6px;

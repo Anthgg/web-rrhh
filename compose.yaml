@@ -1,0 +1,24 @@
+services:
+  fabryor-admin:
+    image: fabryor-admin-web:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-FABRYOR Admin}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-https://backend-app-movil-177686674468.europe-west1.run.app}
+      AUTH_DEBUG: ${AUTH_DEBUG:-false}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/login').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

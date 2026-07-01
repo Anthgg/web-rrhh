@@ -22,16 +22,16 @@ export async function GET(request: Request) {
 
  return jsonResponse(normalizePaginated(response.data, normalizeRequestItem));
  } catch (error) {
- if (softFail && error instanceof BackendApiError && ![401, 403].includes(error.status)) {
- return jsonResponse({
- items: [],
- total: 0,
- page: Number(filters.page ?? 1),
- pageSize: Number(filters.limit ?? 10),
- source: "api" as const,
- });
- }
+    if (softFail && error instanceof BackendApiError) {
+      return jsonResponse({
+        items: [],
+        total: 0,
+        page: Number(filters.page ?? 1),
+        pageSize: Number(filters.limit ?? 10),
+        source: "api" as const,
+      });
+    }
 
- return handleRouteError(error);
- }
+    return handleRouteError(error);
+  }
 }

@@ -81,19 +81,82 @@ function getAttendanceRecordMap(source: unknown, key: "recordsByDate" | "calenda
   return undefined;
 }
 
-function normalizeAttendanceSummaryResponse(raw: unknown): AttendanceSummaryApiResponse {
-  const records = unwrapAttendanceRecords(raw);
+function normalizeMapDayKey(dayKey: string | null | undefined): string | null {
+  if (!dayKey) return null;
+  return dayKey.includes("T") ? dayKey.split("T")[0] : dayKey;
+}
+
+function withCanonicalDayKey(record: AttendanceSummary, mapKey: string): AttendanceSummary {
+  const dayKey = normalizeMapDayKey(mapKey);
+  if (!dayKey) return record;
+
+  return {
+    ...record,
+    dateKey: dayKey,
+    dayKey,
+    calendarDate: dayKey,
+  };
+}
+
+function unwrapRecordsFromDateMap(map?: AttendanceRecordsByDate): AttendanceSummary[] {
+  if (!map) return [];
+
+  return Object.entries(map).flatMap(([mapKey, value]) => {
+    if (!value) return [];
+    const records = Array.isArray(value) ? value : [value];
+    return records.map((record) => withCanonicalDayKey(record, mapKey));
+  });
+}
+
+function getRecordWorkerId(record: AttendanceSummary): string | undefined {
+  const row = record as unknown as Record<string, unknown>;
+  return String(record.worker_id ?? row.workerId ?? row.worker_id ?? "").trim() || undefined;
+}
+
+function filterRecordsByWorker(records: AttendanceSummary[], workerId?: string): AttendanceSummary[] {
+  if (!workerId) return records;
+  const hasWorkerScopedRows = records.some((record) => Boolean(getRecordWorkerId(record)));
+  if (!hasWorkerScopedRows) return records;
+
+  return records.filter((record) => {
+    const recordWorkerId = getRecordWorkerId(record);
+    return !recordWorkerId || recordWorkerId === workerId;
+  });
+}
+
+function filterRecordMapByWorker(map: AttendanceRecordsByDate | undefined, workerId?: string): AttendanceRecordsByDate | undefined {
+  if (!map || !workerId) return map;
+
+  const filtered: AttendanceRecordsByDate = {};
+  for (const [mapKey, value] of Object.entries(map)) {
+    if (!value) continue;
+
+    const records = Array.isArray(value) ? value : [value];
+    const scopedRecords = filterRecordsByWorker(records, workerId);
+    if (!scopedRecords.length) continue;
+
+    filtered[mapKey] = Array.isArray(value) ? scopedRecords : scopedRecords[0];
+  }
+
+  return Object.keys(filtered).length ? filtered : undefined;
+}
+
+function normalizeAttendanceSummaryResponse(raw: unknown, workerId?: string): AttendanceSummaryApiResponse {
   const outer = getObjectCandidate(raw);
   const nested = getNestedObject(raw);
   const meta = (outer?.meta ?? nested?.meta) as { total?: number; start_date?: string; end_date?: string } | undefined;
   const summary = (outer?.summary ?? nested?.summary) as AttendanceSummaryApiResponse["summary"];
+  const recordsByDate = filterRecordMapByWorker(getAttendanceRecordMap(raw, "recordsByDate"), workerId);
+  const calendarByDate = filterRecordMapByWorker(getAttendanceRecordMap(raw, "calendarByDate"), workerId);
+  const recordsFromMap = unwrapRecordsFromDateMap(recordsByDate ?? calendarByDate);
+  const records = filterRecordsByWorker(recordsFromMap.length ? recordsFromMap : unwrapAttendanceRecords(raw), workerId);
 
   return {
     success: Boolean(outer?.success ?? nested?.success ?? true),
     records,
     data: records,
-    recordsByDate: getAttendanceRecordMap(raw, "recordsByDate"),
-    calendarByDate: getAttendanceRecordMap(raw, "calendarByDate"),
+    recordsByDate,
+    calendarByDate,
     meta,
     summary,
   };
@@ -225,7 +288,7 @@ export const scheduleService = {
   getAttendanceSummary: (params: { start_date: string; end_date: string; worker_id?: string }) => {
     return apiClient<unknown>(webApiEndpoints.schedule.attendanceSummary, {
       query: params,
-    }).then(normalizeAttendanceSummaryResponse);
+    }).then((raw) => normalizeAttendanceSummaryResponse(raw, params.worker_id));
   },
 
   /**
@@ -240,7 +303,7 @@ export const scheduleService = {
   ) => {
     return apiClient<unknown>(webApiEndpoints.schedule.attendanceSummary, {
       query: { ...params, worker_id: workerId },
-    }).then(normalizeAttendanceSummaryResponse);
+    }).then((raw) => normalizeAttendanceSummaryResponse(raw, workerId));
   },
 
   correctAttendance: async (payload: {

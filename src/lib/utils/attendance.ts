@@ -257,8 +257,26 @@ export function normalizeAttendanceStatus(row: Record<string, unknown>): Attenda
   const effectiveMinutes = (row.effective_worked_hours as number) ?? (row.effectiveMinutes as number) ?? 0;
   const lateMinutes = (row.late_minutes as number) ?? (row.lateMinutes as number) ?? 0;
   const absentDays = (row.absent_days as number) ?? (row.absentDays as number) ?? 0;
-  const hasCheckIn = Boolean(row.hasCheckIn ?? row.has_check_in ?? row.check_in ?? row.checkIn);
-  const hasCheckOut = Boolean(row.hasCheckOut ?? row.has_check_out ?? row.check_out ?? row.checkOut);
+  const hasCheckIn = Boolean(
+    row.hasCheckIn ??
+    row.has_check_in ??
+    row.check_in ??
+    row.checkIn ??
+    row.check_in_time ??
+    row.checkInTime ??
+    row.check_in_local_time ??
+    row.checkInLocalTime
+  );
+  const hasCheckOut = Boolean(
+    row.hasCheckOut ??
+    row.has_check_out ??
+    row.check_out ??
+    row.checkOut ??
+    row.check_out_time ??
+    row.checkOutTime ??
+    row.check_out_local_time ??
+    row.checkOutLocalTime
+  );
   const expectedMinutes = (row.expected_hours as number) ?? 0;
 
   const shift = row.shift as Record<string, unknown> | undefined;
@@ -657,15 +675,24 @@ export function getRecordCheckTime(record: AttendanceSummary, type: "in" | "out"
       (row.checkIn as string) ??
       (row.entry_time as string) ??
       (row.entryTime as string) ??
+      (row.check_in_local_time as string) ??
+      (row.checkInLocalTime as string) ??
       null;
     if (actual) return actual;
-    
-    const hasIn = Boolean(row.hasCheckIn ?? row.has_check_in);
+
+    const hasIn = Boolean(
+      row.hasCheckIn ??
+      row.has_check_in ??
+      row.check_in_time ??
+      row.checkInTime ??
+      row.check_in_local_time ??
+      row.checkInLocalTime
+    );
     if (!hasIn) return null;
-    
+
     const baseTime = (shift?.startTime as string) ?? (shift?.start_time as string);
     if (!baseTime) return null;
-    
+
     const lateMins = Number(row.late_minutes ?? row.lateMinutes ?? 0);
     if (lateMins > 0) {
       return addMinutesToTime(baseTime, lateMins);
@@ -680,12 +707,21 @@ export function getRecordCheckTime(record: AttendanceSummary, type: "in" | "out"
     (row.checkOut as string) ??
     (row.exit_time as string) ??
     (row.exitTime as string) ??
+    (row.check_out_local_time as string) ??
+    (row.checkOutLocalTime as string) ??
     null;
   if (actual) return actual;
-  
-  const hasOut = Boolean(row.hasCheckOut ?? row.has_check_out);
+
+  const hasOut = Boolean(
+    row.hasCheckOut ??
+    row.has_check_out ??
+    row.check_out_time ??
+    row.checkOutTime ??
+    row.check_out_local_time ??
+    row.checkOutLocalTime
+  );
   if (!hasOut) return null;
-  
+
   const baseTime = (shift?.endTime as string) ?? (shift?.end_time as string);
   if (!baseTime) return null;
   

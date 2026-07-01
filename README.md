@@ -73,3 +73,22 @@ npm run lint
 - Los route handlers hacen proxy al backend existente.
 - La aplicacion consume solo endpoints administrativos reales; si una ruta falla, no existe o no cumple contrato, la interfaz muestra el error real en lugar de datos simulados.
 - Para revisar conectividad despues de iniciar sesion, abre `/api/diagnostics/connections`. Devuelve estado HTTP y ruta usada por modulo, sin exponer tokens ni datos de negocio.
+
+## Docker
+
+La imagen ejecuta Next.js en modo `standalone` sobre Node.js 22 y se comunica con el backend mediante `BACKEND_URL`.
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+```
+
+La aplicacion queda disponible en `http://localhost:3000`. Para usar otro puerto, cambia `APP_PORT` en `.env`.
+
+Comandos utiles:
+
+```bash
+docker compose ps
+docker compose logs -f fabryor-admin
+docker compose down
+```

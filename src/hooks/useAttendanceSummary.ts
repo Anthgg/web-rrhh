@@ -34,10 +34,30 @@ function getResponseMaps(raw: unknown): {
 
 function flattenRecordsByDate(map?: AttendanceRecordsByDate): AttendanceSummary[] {
   if (!map) return [];
-  return Object.values(map).flatMap((value) => {
+  return Object.entries(map).flatMap(([mapKey, value]) => {
     if (!value) return [];
-    return Array.isArray(value) ? value : [value];
+    const dayKey = mapKey.includes("T") ? mapKey.split("T")[0] : mapKey;
+    const records = Array.isArray(value) ? value : [value];
+    return records.map((record) => ({
+      ...record,
+      dateKey: dayKey,
+      dayKey,
+      calendarDate: dayKey,
+    }));
   });
+}
+
+function getCanonicalRecords(raw: unknown): AttendanceSummary[] {
+  if (!raw) return [];
+
+  const { recordsByDate, calendarByDate } = getResponseMaps(raw);
+  const mappedRecords = flattenRecordsByDate(recordsByDate ?? calendarByDate);
+  if (mappedRecords.length) return mappedRecords;
+
+  const response = raw as Record<string, unknown>;
+  if (Array.isArray(response.records)) return response.records as AttendanceSummary[];
+  if (Array.isArray(response.data)) return response.data as AttendanceSummary[];
+  return [];
 }
 
 export function useAttendanceSummary({ startDate, endDate, workerId }: UseSummaryParams) {
@@ -54,13 +74,7 @@ export function useAttendanceSummary({ startDate, endDate, workerId }: UseSummar
   });
 
   const records: AttendanceSummary[] = useMemo(() => {
-    const raw = query.data;
-    if (!raw) return [];
-    const r = raw as unknown as Record<string, unknown>;
-    if (Array.isArray(r.records)) return r.records as AttendanceSummary[];
-    if (Array.isArray(r.data)) return r.data as AttendanceSummary[];
-    const { recordsByDate, calendarByDate } = getResponseMaps(raw);
-    return flattenRecordsByDate(recordsByDate ?? calendarByDate);
+    return getCanonicalRecords(query.data);
   }, [query.data]);
 
   const { recordsByDate, calendarByDate } = useMemo(
@@ -97,40 +111,7 @@ export function useWorkerAttendanceDetail(
 
   const records: AttendanceSummary[] = useMemo(() => {
     const raw = query.data;
-    if (!raw) return [];
-    const r = raw as unknown as Record<string, unknown>;
-    const list = Array.isArray(r.records)
-      ? (r.records as AttendanceSummary[])
-      : Array.isArray(r.data)
-      ? (r.data as AttendanceSummary[])
-      : flattenRecordsByDate(getResponseMaps(raw).recordsByDate ?? getResponseMaps(raw).calendarByDate);
-    // Debug: log ALL fields including null values to find actual check-in time
-    if (list.length > 0) {
-      const record = list[0] as unknown as Record<string, unknown>;
-      const allKeys = Object.keys(record);
-      const timeRelated: Record<string, unknown> = {};
-      for (const k of allKeys) {
-        const v = record[k];
-        // Show all fields + specifically flag time-looking values
-        timeRelated[k] = v;
-      }
-      console.log("[worker-detail] TODOS los campos del primer registro:", timeRelated);
-      console.log("[worker-detail] Campos potenciales de hora:", {
-        check_in: record.check_in,
-        check_out: record.check_out,
-        checkIn: record.checkIn,
-        checkOut: record.checkOut,
-        actual_check_in: record.actual_check_in,
-        actual_check_out: record.actual_check_out,
-        check_in_time: record.check_in_time,
-        check_out_time: record.check_out_time,
-        entry_time: record.entry_time,
-        exit_time: record.exit_time,
-        marked_at: record.marked_at,
-        schedule_keys: Object.keys((record.schedule as object) ?? {}),
-      });
-    }
-    return list;
+    return getCanonicalRecords(raw);
   }, [query.data]);
 
   const { recordsByDate, calendarByDate } = useMemo(

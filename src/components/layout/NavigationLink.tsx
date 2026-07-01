@@ -15,6 +15,12 @@ interface NavigationLinkProps {
   isActive?: boolean;
   onClick?: () => void;
   title?: string;
+  "aria-label"?: string;
+  "aria-current"?: React.AriaAttributes["aria-current"];
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 export function NavigationLink({
@@ -25,6 +31,12 @@ export function NavigationLink({
   isActive,
   onClick,
   title,
+  "aria-label": ariaLabel,
+  "aria-current": ariaCurrent,
+  onMouseEnter,
+  onMouseLeave,
+  onFocus,
+  onBlur,
 }: NavigationLinkProps) {
   const router = useRouter();
 
@@ -56,8 +68,14 @@ export function NavigationLink({
     <Link
       href={href}
       title={title}
+      aria-label={ariaLabel}
+      aria-current={ariaCurrent}
       className={cn(className, isActive && activeClassName)}
       onClick={handleClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onFocus={onFocus}
+      onBlur={onBlur}
     >
       {children}
     </Link>

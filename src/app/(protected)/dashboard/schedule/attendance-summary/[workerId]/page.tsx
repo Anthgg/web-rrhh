@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ShieldAlert, CalendarDays } from "lucide-react";
@@ -21,7 +21,14 @@ function getLocalDateStr(d: Date): string {
 }
 
 function getSafeRecordDayKey(record: AttendanceSummary): string {
-  return record.dateKey ?? record.dayKey ?? record.calendarDate ?? "";
+  return (
+    record.dateKey ??
+    record.dayKey ??
+    record.calendarDate ??
+    record.dateTime?.split("T")[0] ??
+    record.calendarDateTime?.split("T")[0] ??
+    ""
+  );
 }
 
 interface PageProps {
@@ -50,6 +57,24 @@ export default function WorkerAttendanceDetailPage({ params }: PageProps) {
   const [selectedRecord, setSelectedRecord] = useState<AttendanceSummary | null>(null);
   const [selectedDateStr, setSelectedDateStr] = useState<string>("");
   const [selectedContext, setSelectedContext] = useState<{ restType?: string; isHoliday?: boolean; holidayName?: string }>({});
+
+  const selectedRecordForDrawer = useMemo(() => {
+    if (!selectedDateStr) return selectedRecord;
+    return records.find((r) => getSafeRecordDayKey(r) === selectedDateStr) ?? selectedRecord;
+  }, [records, selectedDateStr, selectedRecord]);
+
+  const handleDrawerSuccess = useCallback(async () => {
+    if (!selectedDateStr) {
+      await refetch();
+      return;
+    }
+
+    const result = await refetch();
+    const updated = result.data?.records?.find((r) => getSafeRecordDayKey(r) === selectedDateStr);
+    if (updated) {
+      setSelectedRecord(updated);
+    }
+  }, [refetch, selectedDateStr]);
 
   function handleDayClick(record: AttendanceSummary | null, dateStr: string, context?: { restType?: string; isHoliday?: boolean; holidayName?: string }) {
     setSelectedRecord(record);
@@ -175,11 +200,11 @@ export default function WorkerAttendanceDetailPage({ params }: PageProps) {
           {/* Sidebar / Drawer */}
           <AttendanceDayDrawer
             open={drawerOpen}
-            record={selectedRecord}
+            record={selectedRecordForDrawer}
             dateStr={selectedDateStr}
             workerId={workerId}
             onClose={() => setDrawerOpen(false)}
-            onSuccess={() => refetch()}
+            onSuccess={handleDrawerSuccess}
             context={selectedContext}
           />
         </div>

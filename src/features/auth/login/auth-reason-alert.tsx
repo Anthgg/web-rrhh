@@ -6,9 +6,6 @@ interface AuthReasonAlertProps {
   reason: string | null;
 }
 
-/**
- * Premium, sober alert shown above the login form when a redirect reason is present.
- */
 export function AuthReasonAlert({ reason }: AuthReasonAlertProps) {
   if (!reason) return null;
 
@@ -29,20 +26,20 @@ export function AuthReasonAlert({ reason }: AuthReasonAlertProps) {
   }
 
   return (
-    <div
-      role="status"
+    <output
+      aria-live="polite"
       className={
         isWarning
-          ? "flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-3.5 text-amber-200"
-          : "flex items-start gap-3 rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-3.5 text-cyan-200"
+          ? "flex items-start gap-3 rounded-xl border border-[#a07840]/20 bg-[#a07840]/[0.07] p-3.5 text-[#6f512c]"
+          : "flex items-start gap-3 rounded-xl border border-[#547a78]/20 bg-[#547a78]/[0.07] p-3.5 text-[#315f60]"
       }
     >
       {isWarning ? (
-        <ShieldAlert className="mt-0.5 size-[18px] shrink-0 text-amber-400" aria-hidden />
+        <ShieldAlert className="mt-0.5 size-[18px] shrink-0 text-[#8a6534]" strokeWidth={1.8} aria-hidden />
       ) : (
-        <Info className="mt-0.5 size-[18px] shrink-0 text-cyan-400" aria-hidden />
+        <Info className="mt-0.5 size-[18px] shrink-0 text-[#547a78]" strokeWidth={1.8} aria-hidden />
       )}
-      <p className="text-[13px] leading-relaxed font-medium">{message}</p>
-    </div>
+      <p className="text-[13px] font-medium leading-relaxed">{message}</p>
+    </output>
   );
 }

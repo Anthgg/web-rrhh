@@ -28,3 +28,31 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Local agent skills and generated diagnostic artifacts
+.*/skills/
+/skills/
+/skills-lock.json
+/deps_files.txt
+/doctor.config.json
+/doctor_output*.txt
+/final_report.json
+/git_log.txt
+/knip.json
+/old_page.tsx
+/profile_debug.json
+/query_files.txt
+/raw_api_response.json
+/refactor_colors.cjs
+/report.json
+/rules.json
+/scratch_*.json
+/session_debug_response.json
+/transcript_page_tsx.txt
+/unused_files.json
+
+# Unused local copy; the login imports public/assets/login/constructor.png
+/src/assets/login imagenes/
